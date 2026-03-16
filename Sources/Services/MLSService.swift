@@ -19,6 +19,10 @@ actor MLSService {
     // MARK: - Initialisation
 
     /// Production init: keyring-managed SQLite encryption key stored in iOS Keychain.
+    ///
+    /// Falls back to `newMdkWithKey` using a locally-managed key if Keychain-based
+    /// initialisation fails (common on Simulator or when entitlements are missing).
+    ///
     /// - Parameters:
     ///   - serviceId: Reverse-DNS app identifier used as the Keychain service name.
     ///   - dbKeyId:   Stable key identifier (Keychain account name).
@@ -27,9 +31,34 @@ actor MLSService {
         dbKeyId: String   = "mdk.db.key"
     ) throws {
         let path = Self.defaultDBPath()
-        mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
-        isInitialised = true
-        FMFLogger.mls.info("MLSService initialised at \(path)")
+
+        do {
+            mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
+            isInitialised = true
+            FMFLogger.mls.info("MLSService initialised (keyring) at \(path)")
+        } catch {
+            FMFLogger.mls.warning("Keyring init failed (\(error.localizedDescription)), falling back to local key")
+            let key = Self.getOrCreateLocalKey()
+            mdk = try newMdkWithKey(dbPath: path, encryptionKey: key, config: nil)
+            isInitialised = true
+            FMFLogger.mls.info("MLSService initialised (local key) at \(path)")
+        }
+    }
+
+    /// Get or create a 32-byte encryption key stored in UserDefaults.
+    ///
+    /// This is less secure than Keychain but works reliably on Simulator
+    /// and when Keychain entitlements aren't configured.
+    private static func getOrCreateLocalKey() -> Data {
+        let key = "fmf.mdk.db.encryptionKey"
+        if let existing = UserDefaults.standard.data(forKey: key), existing.count == 32 {
+            return existing
+        }
+        var bytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let newKey = Data(bytes)
+        UserDefaults.standard.set(newKey, forKey: key)
+        return newKey
     }
 
     /// Custom-key init: caller supplies the 32-byte database encryption key.

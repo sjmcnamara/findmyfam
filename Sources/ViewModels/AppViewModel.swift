@@ -90,9 +90,13 @@ final class AppViewModel: ObservableObject {
         marmotService.nicknameStore = nicknameStore
         self.marmot = marmotService
 
-        // Start Marmot subscriptions (non-fatal)
-        await marmotService.startSubscriptions()
-        FMFLogger.marmot.info("MarmotService initialised")
+        // Start Marmot subscriptions only if MLS initialised successfully
+        if await mls.isInitialised {
+            await marmotService.startSubscriptions()
+            FMFLogger.marmot.info("MarmotService initialised with subscriptions")
+        } else {
+            FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
+        }
 
         // Wire location pipeline: LocationService → MarmotService (all groups)
         wireLocationPipeline(marmot: marmotService)

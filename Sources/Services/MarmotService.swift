@@ -258,6 +258,10 @@ final class MarmotService: ObservableObject {
             default:
                 FMFLogger.marmot.debug("Ignoring event kind \(kind)")
             }
+        } catch let error as MLSService.MLSError {
+            // MLS errors (not initialised, epoch mismatch) are expected for
+            // events from groups we don't belong to — log at debug, not error.
+            FMFLogger.marmot.debug("MLS skipped event kind \(kind): \(error.localizedDescription)")
         } catch {
             lastError = error.localizedDescription
             FMFLogger.marmot.error("Error handling event kind \(kind): \(error)")

@@ -78,10 +78,36 @@ struct SettingsView: View {
     private var connectionSection: some View {
         Section("Connection") {
             HStack {
-                Text("Status")
+                Text("Relay")
                 Spacer()
                 connectionLabel
             }
+
+            HStack {
+                Text("MLS Crypto")
+                Spacer()
+                mlsStatusLabel
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var mlsStatusLabel: some View {
+        if let error = appViewModel.mlsError {
+            VStack(alignment: .trailing, spacing: 4) {
+                Label("Failed", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+                Text(error)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        } else if appViewModel.marmot != nil {
+            Label("Ready", systemImage: "checkmark.shield")
+                .foregroundStyle(.green)
+        } else {
+            Label("Starting…", systemImage: "hourglass")
+                .foregroundStyle(.orange)
         }
     }
 
