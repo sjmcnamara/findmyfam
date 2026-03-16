@@ -28,7 +28,8 @@ struct RootView: View {
             GroupListView(
                 viewModel: GroupListViewModel(
                     marmot: marmot,
-                    mls: appViewModel.mls
+                    mls: appViewModel.mls,
+                    displayName: { [weak appViewModel] in appViewModel?.settings.displayName ?? "" }
                 )
             )
         } else {

@@ -42,6 +42,10 @@ final class MarmotService: ObservableObject {
     /// Bumped when a chat message is received — ChatViewModel observes this.
     @Published private(set) var lastChatMessageGroupId: String?
 
+    /// Bumped when a welcome is accepted — AppViewModel observes this to
+    /// auto-broadcast the user's display name to the newly joined group.
+    @Published private(set) var lastJoinedGroupId: String?
+
     // MARK: - Public accessors
 
     /// Connected relay URLs — used by GroupDetailViewModel for invite generation.
@@ -290,6 +294,9 @@ final class MarmotService: ObservableObject {
         // Auto-accept the welcome
         try await mls.acceptWelcome(welcome)
         await refreshGroups()
+
+        // Signal to AppViewModel so it can broadcast our display name
+        lastJoinedGroupId = welcome.mlsGroupId
 
         FMFLogger.marmot.info("Accepted welcome for group \(welcome.mlsGroupId)")
     }

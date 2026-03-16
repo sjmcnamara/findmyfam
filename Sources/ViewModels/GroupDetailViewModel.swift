@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import MDKBindings
 import NostrSDK
 
@@ -33,6 +34,7 @@ final class GroupDetailViewModel: ObservableObject {
     private let mls: MLSService
     private let nicknameStore: NicknameStore
     private let myPubkeyHex: String
+    private var cancellable: AnyCancellable?
 
     // MARK: - Init
 
@@ -48,6 +50,14 @@ final class GroupDetailViewModel: ObservableObject {
         self.mls = mls
         self.nicknameStore = nicknameStore
         self.myPubkeyHex = myPubkeyHex
+
+        // Re-resolve display names when nicknames change
+        cancellable = nicknameStore.$nicknames
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshDisplayNames()
+            }
     }
 
     // MARK: - Load
@@ -173,5 +183,20 @@ final class GroupDetailViewModel: ObservableObject {
     /// Whether the current user is an admin of this group.
     var isAdmin: Bool {
         members.first(where: \.isMe)?.isAdmin ?? false
+    }
+
+    // MARK: - Nickname refresh
+
+    /// Re-resolve display names in-place when NicknameStore changes.
+    private func refreshDisplayNames() {
+        members = members.map { m in
+            MemberItem(
+                id: m.id,
+                pubkeyHex: m.pubkeyHex,
+                displayName: nicknameStore.displayName(for: m.pubkeyHex),
+                isAdmin: m.isAdmin,
+                isMe: m.isMe
+            )
+        }
     }
 }

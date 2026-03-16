@@ -83,6 +83,27 @@ final class AppViewModel: ObservableObject {
                 FMFLogger.location.info("Location interval updated to \(newInterval)s")
             }
             .store(in: &cancellables)
+
+        // Seed own display name into NicknameStore, and broadcast to
+        // all groups whenever it changes.
+        settings.$displayName
+            .dropFirst()
+            .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
+            .sink { [weak self] newName in
+                guard let self else { return }
+                if let pubkey = self.myPubkeyHex {
+                    self.nicknameStore.set(name: newName, for: pubkey)
+                }
+                Task { @MainActor [weak self] in
+                    await self?.broadcastNicknameToAllGroups()
+                }
+            }
+            .store(in: &cancellables)
+
+        // Seed initial value (no broadcast — we do that after Marmot starts)
+        if let pubkey = myPubkeyHex, !settings.displayName.isEmpty {
+            nicknameStore.set(name: settings.displayName, for: pubkey)
+        }
     }
 
     /// Called once when the app becomes active.
@@ -128,11 +149,29 @@ final class AppViewModel: ObservableObject {
             FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
         }
 
+        // Auto-broadcast display name when we join a group via welcome
+        marmotService.$lastJoinedGroupId
+            .compactMap { $0 }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self, weak marmotService] groupId in
+                guard let self, let marmotService else { return }
+                let name = self.settings.displayName
+                guard !name.isEmpty else { return }
+                Task {
+                    try? await marmotService.sendNicknameUpdate(name: name, toGroup: groupId)
+                    FMFLogger.chat.info("Auto-broadcast nickname to newly joined group \(groupId)")
+                }
+            }
+            .store(in: &cancellables)
+
         // Wire location pipeline: LocationService → MarmotService (all groups)
         wireLocationPipeline(marmot: marmotService)
 
         // Start or stop location based on current pause setting
         applyLocationPauseSetting()
+
+        // Broadcast display name to all groups so other members see it
+        await broadcastNicknameToAllGroups()
     }
 
     // MARK: - Location Pipeline
@@ -181,5 +220,23 @@ final class AppViewModel: ObservableObject {
             locationService.startUpdating()
             FMFLogger.location.info("Location active")
         }
+    }
+
+    // MARK: - Nickname Broadcasting
+
+    /// Send the user's display name to every active group so other members
+    /// can resolve it. Called on startup and whenever the name changes.
+    func broadcastNicknameToAllGroups() async {
+        let name = settings.displayName
+        guard !name.isEmpty, let marmot else { return }
+
+        for group in marmot.groups where group.isActive {
+            do {
+                try await marmot.sendNicknameUpdate(name: name, toGroup: group.mlsGroupId)
+            } catch {
+                FMFLogger.chat.error("Failed to broadcast nickname to group \(group.mlsGroupId): \(error)")
+            }
+        }
+        FMFLogger.chat.info("Broadcast nickname '\(name)' to \(marmot.groups.filter(\.isActive).count) group(s)")
     }
 }

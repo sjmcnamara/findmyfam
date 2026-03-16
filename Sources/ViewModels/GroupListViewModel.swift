@@ -16,6 +16,7 @@ final class GroupListViewModel: ObservableObject {
 
     private let marmot: MarmotService
     private let mls: MLSService
+    private let displayName: () -> String
     private var cancellable: AnyCancellable?
 
     // MARK: - Item model
@@ -30,9 +31,10 @@ final class GroupListViewModel: ObservableObject {
 
     // MARK: - Init
 
-    init(marmot: MarmotService, mls: MLSService) {
+    init(marmot: MarmotService, mls: MLSService, displayName: @escaping () -> String = { "" }) {
         self.marmot = marmot
         self.mls = mls
+        self.displayName = displayName
 
         cancellable = marmot.$groups
             .receive(on: DispatchQueue.main)
@@ -67,6 +69,13 @@ final class GroupListViewModel: ObservableObject {
     func createGroup(name: String) async throws -> String {
         let relays = marmot.activeRelayURLs
         let groupId = try await marmot.createGroup(name: name, relays: relays)
+
+        // Broadcast our display name so other members see it immediately
+        let dn = displayName()
+        if !dn.isEmpty {
+            try? await marmot.sendNicknameUpdate(name: dn, toGroup: groupId)
+        }
+
         return groupId
     }
 

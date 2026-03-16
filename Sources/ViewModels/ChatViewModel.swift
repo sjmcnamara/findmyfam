@@ -32,7 +32,7 @@ final class ChatViewModel: ObservableObject {
     private let mls: MLSService
     private let nicknameStore: NicknameStore
     private let myPubkeyHex: String
-    private var cancellable: AnyCancellable?
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Pagination
 
@@ -56,12 +56,36 @@ final class ChatViewModel: ObservableObject {
         self.myPubkeyHex = myPubkeyHex
 
         // Refresh when a new chat message arrives for this group
-        cancellable = marmot.$lastChatMessageGroupId
+        marmot.$lastChatMessageGroupId
             .receive(on: DispatchQueue.main)
             .sink { [weak self] updatedGroupId in
                 guard let self, updatedGroupId == self.groupId else { return }
                 Task { await self.loadMessages() }
             }
+            .store(in: &cancellables)
+
+        // Re-resolve display names when nicknames change
+        nicknameStore.$nicknames
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshDisplayNames()
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Re-map display names in-place without reloading from MDK.
+    private func refreshDisplayNames() {
+        messages = messages.map { msg in
+            ChatMessageItem(
+                id: msg.id,
+                senderPubkeyHex: msg.senderPubkeyHex,
+                senderDisplayName: nicknameStore.displayName(for: msg.senderPubkeyHex),
+                text: msg.text,
+                timestamp: msg.timestamp,
+                isMe: msg.isMe
+            )
+        }
     }
 
     // MARK: - Load messages
