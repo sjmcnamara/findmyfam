@@ -63,9 +63,36 @@ final class AppViewModel: ObservableObject {
             intervalSeconds: { settingsRef.locationIntervalSeconds }
         )
 
+        // Forward objectWillChange from nested ObservableObjects so that
+        // SwiftUI views observing AppViewModel re-render when child
+        // @Published properties change (e.g. SettingsView watching
+        // locationService.authorizationStatus, settings.isLocationPaused,
+        // relay.connectionState).
+        forwardChildChanges()
+
         // Observe settings changes immediately — NOT in onAppear() which
         // runs async and may not reach the subscription code in time.
         observeSettings()
+    }
+
+    /// Forward `objectWillChange` from nested ObservableObjects so views
+    /// that observe AppViewModel (via @EnvironmentObject) re-render when
+    /// child properties change.
+    private func forwardChildChanges() {
+        settings.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
+        locationService.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
+        relay.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
 
     /// Subscribe to settings changes. Called from init() so the observers
