@@ -210,14 +210,6 @@ final class AppViewModel: ObservableObject {
         // Now publish to UI — GroupListView will receive a fully loaded marmot.
         self.marmot = marmotService
 
-        // Start Marmot subscriptions only if MLS initialised successfully
-        if await mls.isInitialised {
-            await marmotService.startSubscriptions()
-            FMFLogger.marmot.info("MarmotService initialised with subscriptions, \(marmotService.groups.count) group(s) loaded")
-        } else {
-            FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
-        }
-
         // Auto-broadcast display name when we join a group via welcome
         marmotService.$lastJoinedGroupId
             .compactMap { $0 }
@@ -241,6 +233,16 @@ final class AppViewModel: ObservableObject {
 
         // Broadcast display name to all groups so other members see it
         await broadcastNicknameToAllGroups()
+
+        // Start Marmot subscriptions LAST — handleNotifications() runs an
+        // infinite event loop that never returns, so everything above must
+        // complete before this call.
+        if await mls.isInitialised {
+            FMFLogger.marmot.info("Starting subscriptions, \(marmotService.groups.count) group(s) loaded")
+            await marmotService.startSubscriptions()
+        } else {
+            FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
+        }
     }
 
     // MARK: - Location Pipeline
