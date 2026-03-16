@@ -30,8 +30,7 @@ targets:
     platform: iOS
     sources:
       - path: Sources
-    resources:
-      - path: Resources
+      - path: Resources/Assets.xcassets
     dependencies:
       - package: NostrSDK
       - package: MDKBindings
