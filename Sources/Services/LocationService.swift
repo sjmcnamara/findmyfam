@@ -148,8 +148,9 @@ extension LocationService: CLLocationManagerDelegate {
         Task { @MainActor in
             guard self.shouldFire() else { return }
             self.lastFireDate = Date()
+            let hasCallback = self.onLocationUpdate != nil
+            FMFLogger.location.info("Location update: \(location.coordinate.latitude), \(location.coordinate.longitude) acc=\(location.horizontalAccuracy)m callback=\(hasCallback)")
             self.onLocationUpdate?(location)
-            FMFLogger.location.debug("Location fired: \(location.coordinate.latitude), \(location.coordinate.longitude)")
         }
     }
 

@@ -219,15 +219,29 @@ final class AppViewModel: ObservableObject {
         locationService.intervalSeconds = settings.locationIntervalSeconds
 
         locationService.onLocationUpdate = { [weak self, weak marmot] location in
-            guard let self, let marmot else { return }
+            guard let self else {
+                FMFLogger.location.warning("Location callback fired but AppViewModel is nil")
+                return
+            }
+            guard let marmot else {
+                FMFLogger.location.warning("Location callback fired but MarmotService is nil")
+                return
+            }
             Task { @MainActor in
                 await self.broadcastLocation(location, via: marmot)
             }
         }
+        FMFLogger.location.info("Location pipeline wired — callback set, interval=\(self.locationService.intervalSeconds)s")
     }
 
     /// Send a location update to every active MLS group.
     private func broadcastLocation(_ location: CLLocation, via marmot: MarmotService) async {
+        let activeGroups = marmot.groups.filter(\.isActive)
+        guard !activeGroups.isEmpty else {
+            FMFLogger.location.warning("broadcastLocation: no active groups — \(marmot.groups.count) total group(s)")
+            return
+        }
+
         let payload = LocationPayload(
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude,
@@ -236,9 +250,10 @@ final class AppViewModel: ObservableObject {
             timestamp: location.timestamp
         )
 
-        for group in marmot.groups where group.isActive {
+        for group in activeGroups {
             do {
                 try await marmot.sendLocationUpdate(payload, toGroup: group.mlsGroupId)
+                FMFLogger.location.info("Location sent to group \(group.mlsGroupId)")
             } catch {
                 FMFLogger.location.error("Failed to send location to group \(group.mlsGroupId): \(error)")
             }
