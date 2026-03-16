@@ -48,6 +48,7 @@ struct GroupChatView: View {
                 }
                 .padding(.vertical, 8)
             }
+            .defaultScrollAnchor(.bottom)
             .onChange(of: viewModel.messages.count) {
                 if let lastId = viewModel.messages.last?.id {
                     withAnimation { proxy.scrollTo(lastId, anchor: .bottom) }

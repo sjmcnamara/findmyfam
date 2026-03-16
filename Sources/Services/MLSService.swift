@@ -18,68 +18,53 @@ actor MLSService {
 
     // MARK: - Initialisation
 
-    /// Production init with automatic recovery.
+    /// Production init — uses `newMdkUnencrypted()` directly.
     ///
-    /// Strategy:
-    /// 1. Try `newMdk` (Keychain-managed key) — ideal on real devices.
-    /// 2. If that fails, try `newMdkWithKey` (app-managed key).
-    /// 3. If *that* fails with an encryption mismatch (stale DB), delete the
-    ///    database file and retry `newMdkWithKey` with a fresh database.
+    /// `newMdkWithKey()` (SQLCipher) is broken for file-backed DBs in this
+    /// MDK build: it appears to succeed on first creation but writes an
+    /// unencrypted DB, then refuses to reopen it ("Cannot open unencrypted
+    /// database"). Confirmed on both iOS 18 and iOS 26.
+    ///
+    /// `newMdk()` (keyring) also fails — the Rust `keyring` crate can't
+    /// access the iOS Keychain reliably.
+    ///
+    /// `newMdkUnencrypted()` works reliably on all tested devices and OS
+    /// versions. iOS filesystem encryption (NSFileProtectionComplete)
+    /// already encrypts all app data at rest, so the MLS state is still
+    /// protected. We can revisit SQLCipher once the MDK fixes the issue.
     func initialise(
         serviceId: String = "org.findmyfam",
         dbKeyId: String   = "mdk.db.key"
     ) throws {
+        guard !isInitialised else {
+            FMFLogger.mls.debug("MLSService already initialised, skipping")
+            return
+        }
+
         let path = Self.defaultDBPath()
+        let fm = FileManager.default
+        let dbExists = fm.fileExists(atPath: path)
+        let dbSize = (try? fm.attributesOfItem(atPath: path)[.size] as? UInt64) ?? 0
 
-        // Attempt 1: Keychain-managed key
+        FMFLogger.mls.info("MLSService init — dbExists=\(dbExists), dbSize=\(dbSize), path=\(path)")
+
+        // If a previous version left a broken encrypted DB, the unencrypted
+        // open will fail. Detect that and delete so we get a clean start.
         do {
-            mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
-            isInitialised = true
-            FMFLogger.mls.info("MLSService initialised (keyring) at \(path)")
-            return
+            mdk = try newMdkUnencrypted(dbPath: path, config: nil)
         } catch {
-            FMFLogger.mls.warning("Keyring init failed: \(error.localizedDescription)")
+            if dbExists {
+                FMFLogger.mls.warning("Cannot open existing DB, deleting stale file: \(error)")
+                Self.deleteDatabase(at: path)
+                mdk = try newMdkUnencrypted(dbPath: path, config: nil)
+            } else {
+                throw error
+            }
         }
 
-        // Attempt 2: App-managed key
-        let key = Self.getOrCreateLocalKey()
-        do {
-            mdk = try newMdkWithKey(dbPath: path, encryptionKey: key, config: nil)
-            isInitialised = true
-            FMFLogger.mls.info("MLSService initialised (local key) at \(path)")
-            return
-        } catch {
-            FMFLogger.mls.warning("Local key init failed: \(error.localizedDescription)")
-        }
-
-        // Attempt 3: Delete stale DB and start fresh
-        FMFLogger.mls.warning("Deleting stale MLS database at \(path) and recreating")
-        Self.deleteDatabase(at: path)
-
-        // Generate a fresh key (old key may correspond to a different encryption state)
-        let freshKey = Self.createFreshLocalKey()
-        mdk = try newMdkWithKey(dbPath: path, encryptionKey: freshKey, config: nil)
         isInitialised = true
-        FMFLogger.mls.info("MLSService initialised (fresh database) at \(path)")
-    }
-
-    /// Get or create a 32-byte encryption key stored in UserDefaults.
-    private static func getOrCreateLocalKey() -> Data {
-        let key = "fmf.mdk.db.encryptionKey"
-        if let existing = UserDefaults.standard.data(forKey: key), existing.count == 32 {
-            return existing
-        }
-        return createFreshLocalKey()
-    }
-
-    /// Generate a new 32-byte key and store it, replacing any previous key.
-    private static func createFreshLocalKey() -> Data {
-        let key = "fmf.mdk.db.encryptionKey"
-        var bytes = [UInt8](repeating: 0, count: 32)
-        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        let newKey = Data(bytes)
-        UserDefaults.standard.set(newKey, forKey: key)
-        return newKey
+        let groupCount = (try? mdk?.getGroups().count) ?? -1
+        FMFLogger.mls.info("MLSService initialised (unencrypted), \(groupCount) group(s) in DB")
     }
 
     /// Delete the database file and any related WAL/SHM files.

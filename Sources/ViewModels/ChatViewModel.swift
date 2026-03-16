@@ -99,7 +99,9 @@ final class ChatViewModel: ObservableObject {
                 offset: nil,
                 sortOrder: MLSSortOrder.createdAtFirst
             )
-            messages = mdkMessages.compactMap { mapMessage($0) }
+            // MDK returns newest-first; reverse so oldest is at the top
+            // and newest at the bottom (natural chat order).
+            messages = mdkMessages.compactMap { mapMessage($0) }.reversed()
             currentOffset = UInt32(messages.count)
             hasMore = mdkMessages.count == Int(pageSize)
             error = nil
@@ -119,8 +121,9 @@ final class ChatViewModel: ObservableObject {
                 offset: currentOffset,
                 sortOrder: MLSSortOrder.createdAtFirst
             )
-            let newItems = mdkMessages.compactMap { mapMessage($0) }
-            // Prepend older messages — they come in chronological order
+            // MDK returns newest-first; reverse for chronological order
+            let newItems = Array(mdkMessages.compactMap { mapMessage($0) }.reversed())
+            // Prepend older messages at the top
             messages.insert(contentsOf: newItems, at: 0)
             currentOffset += UInt32(newItems.count)
             hasMore = mdkMessages.count == Int(pageSize)

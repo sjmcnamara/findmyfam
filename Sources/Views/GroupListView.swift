@@ -3,11 +3,7 @@ import SwiftUI
 /// Chat tab root — shows the list of groups with Create / Join actions.
 struct GroupListView: View {
     @EnvironmentObject var appViewModel: AppViewModel
-    @StateObject private var viewModel: GroupListViewModel
-
-    init(viewModel: GroupListViewModel) {
-        _viewModel = StateObject(wrappedValue: viewModel)
-    }
+    @ObservedObject var viewModel: GroupListViewModel
 
     var body: some View {
         NavigationStack {

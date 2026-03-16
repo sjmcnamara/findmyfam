@@ -267,8 +267,15 @@ final class MarmotService: ObservableObject {
             // events from groups we don't belong to — log at debug, not error.
             FMFLogger.marmot.debug("MLS skipped event kind \(kind): \(error.localizedDescription)")
         } catch {
-            lastError = error.localizedDescription
-            FMFLogger.marmot.error("Error handling event kind \(kind): \(error)")
+            // MDK errors like "group not found" are expected for events from
+            // groups we don't belong to (kind-445 filter is relay-wide).
+            let msg = String(describing: error)
+            if msg.contains("group not found") || msg.contains("not found") {
+                FMFLogger.marmot.debug("MDK skipped event kind \(kind): \(msg)")
+            } else {
+                lastError = error.localizedDescription
+                FMFLogger.marmot.error("Error handling event kind \(kind): \(error)")
+            }
         }
     }
 
@@ -462,9 +469,11 @@ final class MarmotService: ObservableObject {
     /// Refresh the local groups list from MLS.
     func refreshGroups() async {
         do {
-            groups = try await mls.getGroups()
+            let loaded = try await mls.getGroups()
+            groups = loaded
+            FMFLogger.marmot.info("refreshGroups: \(loaded.count) group(s) loaded from MDK — active: \(loaded.filter(\.isActive).count)")
         } catch {
-            FMFLogger.marmot.error("Failed to refresh groups: \(error)")
+            FMFLogger.marmot.error("refreshGroups FAILED: \(error)")
         }
     }
 

@@ -14,6 +14,7 @@ final class GroupDetailViewModel: ObservableObject {
     @Published private(set) var inviteCode: String?
     @Published private(set) var isLoading = false
     @Published private(set) var isAddingMember = false
+    @Published private(set) var didAddMember = false
     @Published private(set) var error: String?
     @Published var addMemberNpub: String = ""
 
@@ -148,6 +149,9 @@ final class GroupDetailViewModel: ObservableObject {
             // Reload member list
             await load()
             FMFLogger.chat.info("Added member \(pubkeyHex.prefix(8)) to group \(self.groupId)")
+
+            // Signal the view to dismiss back to the chat
+            didAddMember = true
         } catch {
             self.error = error.localizedDescription
             FMFLogger.chat.error("Failed to add member: \(error)")

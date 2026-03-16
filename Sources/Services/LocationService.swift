@@ -22,6 +22,10 @@ final class LocationService: NSObject, ObservableObject {
     /// Whether the service is actively requesting location updates.
     @Published private(set) var isUpdating: Bool = false
 
+    /// Whether the caller has asked us to be updating. When `true` but
+    /// `isUpdating` is `false`, we're waiting for authorization.
+    private var wantsUpdating: Bool = false
+
     // MARK: - Configuration
 
     /// Minimum seconds between callback invocations. Set by AppViewModel from
@@ -64,16 +68,32 @@ final class LocationService: NSObject, ObservableObject {
     // MARK: - Start / Stop
 
     /// Begin continuous + significant-change monitoring.
+    ///
+    /// If authorization has not been granted yet, this records the intent
+    /// so that updates start automatically once the user grants permission.
     func startUpdating() {
+        wantsUpdating = true
+
         guard !isUpdating else { return }
+
+        // Only actually start CLLocationManager if we have permission.
+        // Calling startUpdatingLocation() with .notDetermined silently
+        // does nothing on iOS 17+ — no callbacks, no errors.
+        guard authorizationStatus == .authorizedWhenInUse ||
+              authorizationStatus == .authorizedAlways else {
+            FMFLogger.location.info("startUpdating: not authorized (status=\(self.authorizationStatus.rawValue)) — deferring")
+            return
+        }
+
         manager.startUpdatingLocation()
         manager.startMonitoringSignificantLocationChanges()
         isUpdating = true
-        FMFLogger.location.info("Location updates started (interval=\(self.intervalSeconds)s)")
+        FMFLogger.location.info("CLLocationManager started (interval=\(self.intervalSeconds)s)")
     }
 
     /// Stop all location monitoring.
     func stopUpdating() {
+        wantsUpdating = false
         guard isUpdating else { return }
         manager.stopUpdatingLocation()
         manager.stopMonitoringSignificantLocationChanges()
@@ -106,7 +126,16 @@ extension LocationService: CLLocationManagerDelegate {
         let status = manager.authorizationStatus
         Task { @MainActor in
             self.authorizationStatus = status
-            FMFLogger.location.info("Authorization changed: \(String(describing: status))")
+
+            // If we were waiting for authorization and it's now granted,
+            // start the location updates we previously deferred.
+            let isAuthorized = status == .authorizedWhenInUse || status == .authorizedAlways
+            if isAuthorized && self.wantsUpdating && !self.isUpdating {
+                FMFLogger.location.info("Auth granted — starting deferred location updates")
+                self.manager.startUpdatingLocation()
+                self.manager.startMonitoringSignificantLocationChanges()
+                self.isUpdating = true
+            }
         }
     }
 
@@ -116,7 +145,6 @@ extension LocationService: CLLocationManagerDelegate {
             guard self.shouldFire() else { return }
             self.lastFireDate = Date()
             self.onLocationUpdate?(location)
-            FMFLogger.location.debug("Location fired: \(location.coordinate.latitude), \(location.coordinate.longitude)")
         }
     }
 

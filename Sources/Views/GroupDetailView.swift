@@ -3,6 +3,7 @@ import SwiftUI
 /// Group management view — member list, invite generation, and admin actions.
 struct GroupDetailView: View {
     @ObservedObject var viewModel: GroupDetailViewModel
+    @Environment(\.dismiss) private var dismiss
     @State private var showInvite = false
 
     var body: some View {
@@ -94,6 +95,9 @@ struct GroupDetailView: View {
             }
         }
         .deleteDisabled(!viewModel.isAdmin)
+        .onChange(of: viewModel.didAddMember) { _, added in
+            if added { dismiss() }
+        }
     }
 
     // MARK: - Member row

@@ -31,12 +31,18 @@ final class AppViewModel: ObservableObject {
     /// Local nickname store — maps pubkey hex → display name.
     let nicknameStore: NicknameStore
 
+    /// GroupListViewModel — owned here so it survives SwiftUI view identity
+    /// changes. Created once after MarmotService is ready.
+    @Published private(set) var groupListViewModel: GroupListViewModel?
+
     /// Current user's public key hex — convenience for ViewModels.
     var myPubkeyHex: String? { identity.identity?.publicKeyHex }
 
     /// MLS initialisation error surfaced to the UI (non-fatal — app works without it).
     @Published private(set) var mlsError: String?
 
+    /// Tracks whether onAppear has completed — prevents duplicate startup.
+    private var didStart = false
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -57,9 +63,36 @@ final class AppViewModel: ObservableObject {
             intervalSeconds: { settingsRef.locationIntervalSeconds }
         )
 
+        // Forward objectWillChange from nested ObservableObjects so that
+        // SwiftUI views observing AppViewModel re-render when child
+        // @Published properties change (e.g. SettingsView watching
+        // locationService.authorizationStatus, settings.isLocationPaused,
+        // relay.connectionState).
+        forwardChildChanges()
+
         // Observe settings changes immediately — NOT in onAppear() which
         // runs async and may not reach the subscription code in time.
         observeSettings()
+    }
+
+    /// Forward `objectWillChange` from nested ObservableObjects so views
+    /// that observe AppViewModel (via @EnvironmentObject) re-render when
+    /// child properties change.
+    private func forwardChildChanges() {
+        settings.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
+        locationService.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
+        relay.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
 
     /// Subscribe to settings changes. Called from init() so the observers
@@ -77,10 +110,25 @@ final class AppViewModel: ObservableObject {
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] newInterval in
-                self?.locationService.intervalSeconds = newInterval
-                // Reset throttle so a shorter interval takes effect immediately
-                self?.locationService.resetThrottle()
-                FMFLogger.location.info("Location interval updated to \(newInterval)s")
+                guard let self else { return }
+                self.locationService.intervalSeconds = newInterval
+                self.locationService.resetThrottle()
+                FMFLogger.location.info("Interval changed to \(newInterval)s, throttle reset")
+            }
+            .store(in: &cancellables)
+
+        // When location authorization changes (user taps "Enable Location"
+        // in Settings), re-apply the pause setting so updates actually start.
+        locationService.$authorizationStatus
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                guard let self else { return }
+                let isAuthorized = status == .authorizedWhenInUse || status == .authorizedAlways
+                if isAuthorized {
+                    FMFLogger.location.info("Location authorization granted — re-applying pause setting")
+                    self.applyLocationPauseSetting()
+                }
             }
             .store(in: &cancellables)
 
@@ -108,8 +156,12 @@ final class AppViewModel: ObservableObject {
 
     /// Called once when the app becomes active.
     func onAppear() async {
+        guard !didStart else { return }
+        didStart = true
+
         guard let keys = identity.keys else {
             FMFLogger.relay.error("No identity available — cannot connect to relays")
+            didStart = false
             return
         }
 
@@ -136,18 +188,23 @@ final class AppViewModel: ObservableObject {
         )
         marmotService.locationCache = locationCache
         marmotService.nicknameStore = nicknameStore
-        self.marmot = marmotService
 
-        // Load persisted groups from MDK database
+        // Load persisted groups from MDK database BEFORE publishing
+        // marmotService to the UI — this avoids a flash of empty state
+        // and ensures GroupListViewModel sees groups immediately.
         await marmotService.refreshGroups()
+        FMFLogger.marmot.info("Loaded \(marmotService.groups.count) group(s) from MDK database")
 
-        // Start Marmot subscriptions only if MLS initialised successfully
-        if await mls.isInitialised {
-            await marmotService.startSubscriptions()
-            FMFLogger.marmot.info("MarmotService initialised with subscriptions, \(marmotService.groups.count) group(s) loaded")
-        } else {
-            FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
-        }
+        // Create GroupListViewModel (owned by AppViewModel so it survives
+        // SwiftUI view identity changes in RootView's conditional branches).
+        self.groupListViewModel = GroupListViewModel(
+            marmot: marmotService,
+            mls: mls,
+            displayName: { [weak self] in self?.settings.displayName ?? "" }
+        )
+
+        // Now publish to UI — GroupListView will receive a fully loaded marmot.
+        self.marmot = marmotService
 
         // Auto-broadcast display name when we join a group via welcome
         marmotService.$lastJoinedGroupId
@@ -172,6 +229,16 @@ final class AppViewModel: ObservableObject {
 
         // Broadcast display name to all groups so other members see it
         await broadcastNicknameToAllGroups()
+
+        // Start Marmot subscriptions LAST — handleNotifications() runs an
+        // infinite event loop that never returns, so everything above must
+        // complete before this call.
+        if await mls.isInitialised {
+            FMFLogger.marmot.info("Starting subscriptions, \(marmotService.groups.count) group(s) loaded")
+            await marmotService.startSubscriptions()
+        } else {
+            FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
+        }
     }
 
     // MARK: - Location Pipeline
@@ -186,10 +253,20 @@ final class AppViewModel: ObservableObject {
                 await self.broadcastLocation(location, via: marmot)
             }
         }
+        FMFLogger.location.info("Location pipeline wired (interval=\(self.settings.locationIntervalSeconds)s)")
     }
 
     /// Send a location update to every active MLS group.
+    ///
+    /// Also inserts the user's own location into `LocationCache` so it appears
+    /// on the map immediately — relays may not echo back our own events.
     private func broadcastLocation(_ location: CLLocation, via marmot: MarmotService) async {
+        let activeGroups = marmot.groups.filter(\.isActive)
+        guard !activeGroups.isEmpty else {
+            FMFLogger.location.warning("broadcastLocation: no active groups — \(marmot.groups.count) total group(s)")
+            return
+        }
+
         let payload = LocationPayload(
             latitude: location.coordinate.latitude,
             longitude: location.coordinate.longitude,
@@ -198,9 +275,22 @@ final class AppViewModel: ObservableObject {
             timestamp: location.timestamp
         )
 
-        for group in marmot.groups where group.isActive {
+        // Insert our own location into the cache immediately so the map
+        // shows our pin without waiting for a relay round-trip.
+        if let myKey = myPubkeyHex {
+            for group in activeGroups {
+                locationCache.update(
+                    groupId: group.mlsGroupId,
+                    memberPubkeyHex: myKey,
+                    payload: payload
+                )
+            }
+        }
+
+        for group in activeGroups {
             do {
                 try await marmot.sendLocationUpdate(payload, toGroup: group.mlsGroupId)
+                FMFLogger.location.info("Location sent to group \(group.mlsGroupId)")
             } catch {
                 FMFLogger.location.error("Failed to send location to group \(group.mlsGroupId): \(error)")
             }
@@ -212,14 +302,19 @@ final class AppViewModel: ObservableObject {
     /// Note: does NOT call `requestAuthorization()` — that's triggered by the
     /// "Enable Location" button in Settings to avoid iOS silently dropping
     /// the permission prompt during early app lifecycle.
+    ///
+    /// Guards against starting location updates before `wireLocationPipeline()`
+    /// has set the `onLocationUpdate` callback. The CLLocationManager delegate
+    /// fires via Task after LocationService.init(), which can trigger this
+    /// method (via Combine observer) before `onAppear()` wires the pipeline.
+    /// Stopping is always allowed so the user can pause sharing immediately.
     private func applyLocationPauseSetting() {
         if settings.isLocationPaused {
             locationService.stopUpdating()
-            FMFLogger.location.info("Location paused by user setting")
-        } else {
+        } else if locationService.onLocationUpdate != nil {
             locationService.startUpdating()
-            FMFLogger.location.info("Location active")
         }
+        // If pipeline not yet wired, onAppear() will call this again after wireLocationPipeline().
     }
 
     // MARK: - Nickname Broadcasting
