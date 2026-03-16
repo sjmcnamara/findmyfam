@@ -18,18 +18,79 @@ actor MLSService {
 
     // MARK: - Initialisation
 
-    /// Production init: keyring-managed SQLite encryption key stored in iOS Keychain.
-    /// - Parameters:
-    ///   - serviceId: Reverse-DNS app identifier used as the Keychain service name.
-    ///   - dbKeyId:   Stable key identifier (Keychain account name).
+    /// Production init with automatic recovery.
+    ///
+    /// Strategy:
+    /// 1. Try `newMdk` (Keychain-managed key) — ideal on real devices.
+    /// 2. If that fails, try `newMdkWithKey` (app-managed key).
+    /// 3. If *that* fails with an encryption mismatch (stale DB), delete the
+    ///    database file and retry `newMdkWithKey` with a fresh database.
     func initialise(
         serviceId: String = "org.findmyfam",
         dbKeyId: String   = "mdk.db.key"
     ) throws {
         let path = Self.defaultDBPath()
-        mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
+
+        // Attempt 1: Keychain-managed key
+        do {
+            mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
+            isInitialised = true
+            FMFLogger.mls.info("MLSService initialised (keyring) at \(path)")
+            return
+        } catch {
+            FMFLogger.mls.warning("Keyring init failed: \(error.localizedDescription)")
+        }
+
+        // Attempt 2: App-managed key
+        let key = Self.getOrCreateLocalKey()
+        do {
+            mdk = try newMdkWithKey(dbPath: path, encryptionKey: key, config: nil)
+            isInitialised = true
+            FMFLogger.mls.info("MLSService initialised (local key) at \(path)")
+            return
+        } catch {
+            FMFLogger.mls.warning("Local key init failed: \(error.localizedDescription)")
+        }
+
+        // Attempt 3: Delete stale DB and start fresh
+        FMFLogger.mls.warning("Deleting stale MLS database at \(path) and recreating")
+        Self.deleteDatabase(at: path)
+
+        // Generate a fresh key (old key may correspond to a different encryption state)
+        let freshKey = Self.createFreshLocalKey()
+        mdk = try newMdkWithKey(dbPath: path, encryptionKey: freshKey, config: nil)
         isInitialised = true
-        FMFLogger.mls.info("MLSService initialised at \(path)")
+        FMFLogger.mls.info("MLSService initialised (fresh database) at \(path)")
+    }
+
+    /// Get or create a 32-byte encryption key stored in UserDefaults.
+    private static func getOrCreateLocalKey() -> Data {
+        let key = "fmf.mdk.db.encryptionKey"
+        if let existing = UserDefaults.standard.data(forKey: key), existing.count == 32 {
+            return existing
+        }
+        return createFreshLocalKey()
+    }
+
+    /// Generate a new 32-byte key and store it, replacing any previous key.
+    private static func createFreshLocalKey() -> Data {
+        let key = "fmf.mdk.db.encryptionKey"
+        var bytes = [UInt8](repeating: 0, count: 32)
+        _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+        let newKey = Data(bytes)
+        UserDefaults.standard.set(newKey, forKey: key)
+        return newKey
+    }
+
+    /// Delete the database file and any related WAL/SHM files.
+    private static func deleteDatabase(at path: String) {
+        let fm = FileManager.default
+        for suffix in ["", "-wal", "-shm"] {
+            let file = path + suffix
+            if fm.fileExists(atPath: file) {
+                try? fm.removeItem(atPath: file)
+            }
+        }
     }
 
     /// Custom-key init: caller supplies the 32-byte database encryption key.

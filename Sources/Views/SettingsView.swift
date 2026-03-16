@@ -40,6 +40,18 @@ struct SettingsView: View {
                 Label("Generating identity…", systemImage: "key.fill")
                     .foregroundStyle(.secondary)
             }
+
+            // Display name for group chat
+            HStack {
+                Label("Display Name", systemImage: "person.text.rectangle")
+                Spacer()
+                TextField("Your Name", text: Binding(
+                    get: { appViewModel.settings.displayName },
+                    set: { appViewModel.settings.displayName = $0 }
+                ))
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(.primary)
+            }
         }
     }
 
@@ -66,15 +78,50 @@ struct SettingsView: View {
     private var connectionSection: some View {
         Section("Connection") {
             HStack {
-                Text("Status")
+                Text("Relay")
                 Spacer()
                 connectionLabel
             }
+
+            HStack {
+                Text("MLS Crypto")
+                Spacer()
+                mlsStatusLabel
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var mlsStatusLabel: some View {
+        if let error = appViewModel.mlsError {
+            VStack(alignment: .trailing, spacing: 4) {
+                Label("Failed", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+                Text(error)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        } else if appViewModel.marmot != nil {
+            Label("Ready", systemImage: "checkmark.shield")
+                .foregroundStyle(.green)
+        } else {
+            Label("Starting…", systemImage: "hourglass")
+                .foregroundStyle(.orange)
         }
     }
 
     private var locationSection: some View {
         Section("Location") {
+            // Enable location button — shown only when authorization not yet requested
+            if appViewModel.locationService.authorizationStatus == .notDetermined {
+                Button {
+                    appViewModel.locationService.requestAuthorization()
+                } label: {
+                    Label("Enable Location", systemImage: "location.fill")
+                }
+            }
+
             Toggle(isOn: Binding(
                 get: { appViewModel.settings.isLocationPaused },
                 set: { appViewModel.settings.isLocationPaused = $0 }
@@ -130,7 +177,7 @@ struct SettingsView: View {
             HStack {
                 Text("Version")
                 Spacer()
-                Text("0.4.0")
+                Text("0.5.0")
                     .foregroundStyle(.secondary)
             }
             HStack {

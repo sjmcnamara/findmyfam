@@ -13,7 +13,7 @@ final class AppViewModel: ObservableObject {
     let settings: AppSettings
 
     /// Marmot orchestration layer — bridges MLS ↔ Relay (v0.3).
-    private(set) var marmot: MarmotService?
+    @Published private(set) var marmot: MarmotService?
 
     // MARK: - Location (v0.4)
 
@@ -26,10 +26,18 @@ final class AppViewModel: ObservableObject {
     /// View-model for the family map — observes `locationCache`.
     let locationViewModel: LocationViewModel
 
+    // MARK: - Chat & Nicknames (v0.5)
+
+    /// Local nickname store — maps pubkey hex → display name.
+    let nicknameStore: NicknameStore
+
+    /// Current user's public key hex — convenience for ViewModels.
+    var myPubkeyHex: String? { identity.identity?.publicKeyHex }
+
     /// MLS initialisation error surfaced to the UI (non-fatal — app works without it).
     @Published private(set) var mlsError: String?
 
-    private var settingsCancellable: AnyCancellable?
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         self.identity        = IdentityService()
@@ -38,13 +46,43 @@ final class AppViewModel: ObservableObject {
         self.settings        = AppSettings.shared
         self.locationService = LocationService()
         self.locationCache   = LocationCache()
+        self.nicknameStore   = NicknameStore()
 
         let cache = self.locationCache
         let settingsRef = self.settings
+        let nicknames = self.nicknameStore
         self.locationViewModel = LocationViewModel(
             locationCache: cache,
+            nicknameStore: nicknames,
             intervalSeconds: { settingsRef.locationIntervalSeconds }
         )
+
+        // Observe settings changes immediately — NOT in onAppear() which
+        // runs async and may not reach the subscription code in time.
+        observeSettings()
+    }
+
+    /// Subscribe to settings changes. Called from init() so the observers
+    /// are active before any async startup work.
+    private func observeSettings() {
+        settings.$isLocationPaused
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.applyLocationPauseSetting()
+            }
+            .store(in: &cancellables)
+
+        settings.$locationIntervalSeconds
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newInterval in
+                self?.locationService.intervalSeconds = newInterval
+                // Reset throttle so a shorter interval takes effect immediately
+                self?.locationService.resetThrottle()
+                FMFLogger.location.info("Location interval updated to \(newInterval)s")
+            }
+            .store(in: &cancellables)
     }
 
     /// Called once when the app becomes active.
@@ -76,25 +114,25 @@ final class AppViewModel: ObservableObject {
             keys: keys
         )
         marmotService.locationCache = locationCache
+        marmotService.nicknameStore = nicknameStore
         self.marmot = marmotService
 
-        // Start Marmot subscriptions (non-fatal)
-        await marmotService.startSubscriptions()
-        FMFLogger.marmot.info("MarmotService initialised")
+        // Load persisted groups from MDK database
+        await marmotService.refreshGroups()
+
+        // Start Marmot subscriptions only if MLS initialised successfully
+        if await mls.isInitialised {
+            await marmotService.startSubscriptions()
+            FMFLogger.marmot.info("MarmotService initialised with subscriptions, \(marmotService.groups.count) group(s) loaded")
+        } else {
+            FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
+        }
 
         // Wire location pipeline: LocationService → MarmotService (all groups)
         wireLocationPipeline(marmot: marmotService)
 
         // Start or stop location based on current pause setting
         applyLocationPauseSetting()
-
-        // React to future changes in the pause toggle
-        settingsCancellable = settings.$isLocationPaused
-            .dropFirst()
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.applyLocationPauseSetting()
-            }
     }
 
     // MARK: - Location Pipeline
@@ -131,12 +169,15 @@ final class AppViewModel: ObservableObject {
     }
 
     /// Start or stop location updates based on the current pause setting.
+    ///
+    /// Note: does NOT call `requestAuthorization()` — that's triggered by the
+    /// "Enable Location" button in Settings to avoid iOS silently dropping
+    /// the permission prompt during early app lifecycle.
     private func applyLocationPauseSetting() {
         if settings.isLocationPaused {
             locationService.stopUpdating()
             FMFLogger.location.info("Location paused by user setting")
         } else {
-            locationService.requestAuthorization()
             locationService.startUpdating()
             FMFLogger.location.info("Location active")
         }
