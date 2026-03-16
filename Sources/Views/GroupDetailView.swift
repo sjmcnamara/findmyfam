@@ -27,13 +27,51 @@ struct GroupDetailView: View {
                 }
             }
 
-            // MARK: - Actions
+            // MARK: - Add member (admin only)
+            if viewModel.isAdmin {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Add Member")
+                            .font(.subheadline.bold())
+                        Text("Paste the npub or hex pubkey of someone who has accepted your invite.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        HStack {
+                            TextField("npub1… or hex", text: $viewModel.addMemberNpub)
+                                .textInputAutocapitalization(.never)
+                                .autocorrectionDisabled()
+                                .font(.body.monospaced())
+
+                            Button {
+                                Task { await viewModel.addMember() }
+                            } label: {
+                                if viewModel.isAddingMember {
+                                    ProgressView()
+                                } else {
+                                    Text("Add")
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(
+                                viewModel.addMemberNpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                || viewModel.isAddingMember
+                            )
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } footer: {
+                    Text("The member must publish a key package first (by accepting the invite code).")
+                }
+            }
+
+            // MARK: - Invite
             Section {
                 Button {
                     viewModel.generateInvite()
                     showInvite = true
                 } label: {
-                    Label("Invite Member", systemImage: "person.badge.plus")
+                    Label("Generate Invite Code", systemImage: "person.badge.plus")
                 }
             }
 

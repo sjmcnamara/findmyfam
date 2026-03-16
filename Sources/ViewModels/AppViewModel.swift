@@ -90,10 +90,13 @@ final class AppViewModel: ObservableObject {
         marmotService.nicknameStore = nicknameStore
         self.marmot = marmotService
 
+        // Load persisted groups from MDK database
+        await marmotService.refreshGroups()
+
         // Start Marmot subscriptions only if MLS initialised successfully
         if await mls.isInitialised {
             await marmotService.startSubscriptions()
-            FMFLogger.marmot.info("MarmotService initialised with subscriptions")
+            FMFLogger.marmot.info("MarmotService initialised with subscriptions, \(marmotService.groups.count) group(s) loaded")
         } else {
             FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
         }

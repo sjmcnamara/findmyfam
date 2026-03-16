@@ -1,5 +1,6 @@
 import Foundation
 import MDKBindings
+import NostrSDK
 
 /// Drives the group detail / management view — member list, invite, remove.
 @MainActor
@@ -11,7 +12,9 @@ final class GroupDetailViewModel: ObservableObject {
     @Published private(set) var members: [MemberItem] = []
     @Published private(set) var inviteCode: String?
     @Published private(set) var isLoading = false
+    @Published private(set) var isAddingMember = false
     @Published private(set) var error: String?
+    @Published var addMemberNpub: String = ""
 
     // MARK: - Item model
 
@@ -102,6 +105,42 @@ final class GroupDetailViewModel: ObservableObject {
         } catch {
             self.error = error.localizedDescription
             FMFLogger.chat.error("Failed to generate invite: \(error)")
+        }
+    }
+
+    // MARK: - Add member
+
+    /// Add a member to the group by their npub or hex pubkey.
+    ///
+    /// The invitee must have already published a key package (via acceptInvite).
+    /// This fetches their key package from relays and performs the MLS add.
+    func addMember() async {
+        let input = addMemberNpub.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !input.isEmpty else { return }
+
+        isAddingMember = true
+        defer { isAddingMember = false }
+
+        do {
+            // Resolve npub → hex if needed
+            let pubkeyHex: String
+            if input.hasPrefix("npub") {
+                let pk = try NostrSDK.PublicKey.parse(publicKey: input)
+                pubkeyHex = pk.toHex()
+            } else {
+                pubkeyHex = input
+            }
+
+            try await marmot.addMember(publicKeyHex: pubkeyHex, toGroup: groupId)
+            addMemberNpub = ""
+            error = nil
+
+            // Reload member list
+            await load()
+            FMFLogger.chat.info("Added member \(pubkeyHex.prefix(8)) to group \(self.groupId)")
+        } catch {
+            self.error = error.localizedDescription
+            FMFLogger.chat.error("Failed to add member: \(error)")
         }
     }
 
