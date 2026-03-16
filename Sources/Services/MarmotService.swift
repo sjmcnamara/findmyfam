@@ -469,9 +469,11 @@ final class MarmotService: ObservableObject {
     /// Refresh the local groups list from MLS.
     func refreshGroups() async {
         do {
-            groups = try await mls.getGroups()
+            let loaded = try await mls.getGroups()
+            groups = loaded
+            FMFLogger.marmot.info("refreshGroups: \(loaded.count) group(s) loaded from MDK — active: \(loaded.filter(\.isActive).count)")
         } catch {
-            FMFLogger.marmot.error("Failed to refresh groups: \(error)")
+            FMFLogger.marmot.error("refreshGroups FAILED: \(error)")
         }
     }
 

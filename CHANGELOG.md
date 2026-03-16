@@ -17,7 +17,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Display names not shown — only hex pubkey was visible because nicknames were never written to NicknameStore or broadcast to groups
 - MDK "group not found" errors flooding console — demoted to debug (kind-445 subscription is relay-wide, so unknown group events are expected)
-- Groups lost on app relaunch — `MLSService.initialise()` and `AppViewModel.onAppear()` now guard against double-invocation that could lock the DB and trigger delete-and-recreate recovery
+- **Groups lost on app relaunch** — rewrote `MLSService.initialise()` to never silently delete the database; removed the "last resort delete-and-recreate" path that was destroying group data. Now: if a local encryption key exists, open with it or fail loudly; if keyring fails on first run, clean up the partial DB file before creating a fresh encrypted DB
+- **Groups empty on app relaunch** — moved `GroupListViewModel` ownership from inline SwiftUI construction (vulnerable to view identity resets) to `AppViewModel`; `refreshGroups()` now runs before `self.marmot` is published to the UI so groups are loaded before the chat tab renders
 - Chat messages displayed newest-first — reversed to natural chat order (oldest top, newest bottom) with `.defaultScrollAnchor(.bottom)`
 - GroupDetailView stuck after adding a member — now auto-dismisses back to chat on success
 - Update interval observer race — Combine subscriptions moved from async `onAppear()` to `init()`

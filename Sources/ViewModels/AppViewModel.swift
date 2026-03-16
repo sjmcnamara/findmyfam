@@ -31,6 +31,10 @@ final class AppViewModel: ObservableObject {
     /// Local nickname store — maps pubkey hex → display name.
     let nicknameStore: NicknameStore
 
+    /// GroupListViewModel — owned here so it survives SwiftUI view identity
+    /// changes. Created once after MarmotService is ready.
+    @Published private(set) var groupListViewModel: GroupListViewModel?
+
     /// Current user's public key hex — convenience for ViewModels.
     var myPubkeyHex: String? { identity.identity?.publicKeyHex }
 
@@ -142,10 +146,23 @@ final class AppViewModel: ObservableObject {
         )
         marmotService.locationCache = locationCache
         marmotService.nicknameStore = nicknameStore
-        self.marmot = marmotService
 
-        // Load persisted groups from MDK database
+        // Load persisted groups from MDK database BEFORE publishing
+        // marmotService to the UI — this avoids a flash of empty state
+        // and ensures GroupListViewModel sees groups immediately.
         await marmotService.refreshGroups()
+        FMFLogger.marmot.info("Loaded \(marmotService.groups.count) group(s) from MDK database")
+
+        // Create GroupListViewModel (owned by AppViewModel so it survives
+        // SwiftUI view identity changes in RootView's conditional branches).
+        self.groupListViewModel = GroupListViewModel(
+            marmot: marmotService,
+            mls: mls,
+            displayName: { [weak self] in self?.settings.displayName ?? "" }
+        )
+
+        // Now publish to UI — GroupListView will receive a fully loaded marmot.
+        self.marmot = marmotService
 
         // Start Marmot subscriptions only if MLS initialised successfully
         if await mls.isInitialised {

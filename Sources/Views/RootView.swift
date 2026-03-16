@@ -24,14 +24,8 @@ struct RootView: View {
 
     @ViewBuilder
     private var chatTab: some View {
-        if let marmot = appViewModel.marmot {
-            GroupListView(
-                viewModel: GroupListViewModel(
-                    marmot: marmot,
-                    mls: appViewModel.mls,
-                    displayName: { [weak appViewModel] in appViewModel?.settings.displayName ?? "" }
-                )
-            )
+        if let groupListVM = appViewModel.groupListViewModel {
+            GroupListView(viewModel: groupListVM)
         } else {
             // Marmot not yet initialised — show placeholder
             VStack(spacing: 12) {

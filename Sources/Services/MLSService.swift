@@ -20,61 +20,89 @@ actor MLSService {
 
     /// Production init with automatic recovery.
     ///
-    /// Strategy:
-    /// 1. Try `newMdk` (Keychain-managed key) — ideal on real devices.
-    /// 2. If that fails, try `newMdkWithKey` (app-managed key).
-    /// 3. If *that* fails with an encryption mismatch (stale DB), delete the
-    ///    database file and retry `newMdkWithKey` with a fresh database.
+    /// Strategy (simplified to prevent silent data loss):
+    /// - **Has local key?** → open with it. If it fails, **throw** (never delete).
+    /// - **No local key?** → try keyring. If keyring fails, clean up any partial
+    ///   DB it left behind, then create a fresh DB with a new local key.
+    ///
+    /// The old "last resort delete" path has been removed. If an encrypted DB
+    /// cannot be opened, we surface the error rather than silently losing groups.
     func initialise(
         serviceId: String = "org.findmyfam",
         dbKeyId: String   = "mdk.db.key"
     ) throws {
-        // Guard against re-initialisation — calling twice can lock the DB
-        // and trigger the delete-and-recreate recovery path, losing all groups.
         guard !isInitialised else {
             FMFLogger.mls.debug("MLSService already initialised, skipping")
             return
         }
 
         let path = Self.defaultDBPath()
+        let fm = FileManager.default
+        let dbExisted = fm.fileExists(atPath: path)
+        let dbSize = (try? fm.attributesOfItem(atPath: path)[.size] as? UInt64) ?? 0
         let hasLocalKey = Self.hasExistingLocalKey()
 
-        // If we already have a local key, skip the keyring attempt entirely.
-        // newMdk() can modify the DB file (write an unencrypted header) before
-        // the keyring error, which corrupts the encrypted DB on the next launch
-        // and triggers the delete-and-recreate path — losing all groups.
-        if !hasLocalKey {
+        FMFLogger.mls.info("""
+            MLSService init — \
+            dbExists=\(dbExisted), \
+            dbSize=\(dbSize), \
+            hasLocalKey=\(hasLocalKey), \
+            path=\(path)
+            """)
+
+        // ── CASE 1: Local key exists → open with it ──────────────────────
+        //
+        // This is the normal second-launch path on iOS 26 (keyring broken,
+        // so we created a local key on the first launch). We MUST NOT fall
+        // through to the keyring or delete paths — doing so would corrupt
+        // the encrypted DB or destroy group data.
+        if hasLocalKey {
+            let key = Self.getOrCreateLocalKey()
             do {
-                mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
+                mdk = try newMdkWithKey(dbPath: path, encryptionKey: key, config: nil)
                 isInitialised = true
-                FMFLogger.mls.info("MLSService initialised (keyring) at \(path)")
+                let groupCount = (try? mdk?.getGroups().count) ?? -1
+                FMFLogger.mls.info("MLSService initialised (local key), \(groupCount) group(s) in DB")
                 return
             } catch {
-                FMFLogger.mls.warning("Keyring init failed: \(error.localizedDescription)")
+                // DO NOT delete the database — the user's groups are in there.
+                // Surface the error so it can be diagnosed.
+                FMFLogger.mls.error("""
+                    CRITICAL: Cannot open MLS database with stored local key. \
+                    Groups may be inaccessible until this is resolved. \
+                    Error: \(error)
+                    """)
+                throw error
             }
-        } else {
-            FMFLogger.mls.debug("Skipping keyring init — local key exists")
         }
 
-        // Open with app-managed key (creates key on first run)
-        let key = Self.getOrCreateLocalKey()
+        // ── CASE 2: No local key → try keyring first ────────────────────
         do {
-            mdk = try newMdkWithKey(dbPath: path, encryptionKey: key, config: nil)
+            mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
             isInitialised = true
-            FMFLogger.mls.info("MLSService initialised (local key) at \(path)")
+            let groupCount = (try? mdk?.getGroups().count) ?? -1
+            FMFLogger.mls.info("MLSService initialised (keyring), \(groupCount) group(s) in DB")
             return
         } catch {
-            FMFLogger.mls.warning("Local key init failed: \(error.localizedDescription)")
+            FMFLogger.mls.warning("Keyring init failed: \(error.localizedDescription)")
         }
 
-        // Last resort: delete stale DB and start fresh
-        FMFLogger.mls.warning("Deleting stale MLS database at \(path) and recreating")
-        Self.deleteDatabase(at: path)
+        // Keyring failed — clean up any partial/corrupted DB file it may
+        // have created. This is safe because we only reach this point when
+        // there is NO local key, meaning we've never successfully opened
+        // the DB with a local key before. If the file existed before
+        // newMdk() was called, it may have been left over from a previous
+        // failed attempt; either way, without a matching key it's unusable.
+        if fm.fileExists(atPath: path) {
+            FMFLogger.mls.warning("Removing DB file left by failed keyring init (size=\(dbSize) bytes)")
+            Self.deleteDatabase(at: path)
+        }
 
-        let freshKey = Self.createFreshLocalKey()
-        mdk = try newMdkWithKey(dbPath: path, encryptionKey: freshKey, config: nil)
+        // ── CASE 3: Fresh DB with new local key ─────────────────────────
+        let key = Self.getOrCreateLocalKey()
+        mdk = try newMdkWithKey(dbPath: path, encryptionKey: key, config: nil)
         isInitialised = true
-        FMFLogger.mls.info("MLSService initialised (fresh database) at \(path)")
+        FMFLogger.mls.info("MLSService initialised (new local key, fresh database)")
     }
 
     /// Check whether a local encryption key already exists in UserDefaults.
