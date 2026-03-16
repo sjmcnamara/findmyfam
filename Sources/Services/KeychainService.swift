@@ -21,15 +21,21 @@ protocol SecureStorage {
 
 // MARK: - Keychain implementation
 
-/// Keychain-backed secure storage for production use.
+/// Keychain-backed secure storage with UserDefaults fallback.
+///
+/// Tries iOS Keychain first. If Keychain is unavailable (Simulator quirks,
+/// entitlement issues), falls back to UserDefaults so the identity is stable
+/// across launches. This avoids regenerating a new identity every launch.
 final class KeychainService: SecureStorage {
 
     static let shared = KeychainService()
     private init() {}
 
     private static let service = "org.findmyfam"
+    private static let fallbackPrefix = "fmf.keychain.fallback."
 
     /// Saves a string to the Keychain, overwriting any existing entry.
+    /// Falls back to UserDefaults if Keychain write fails.
     @discardableResult
     func save(key: KeychainKey, value: String) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }
@@ -45,13 +51,16 @@ final class KeychainService: SecureStorage {
         SecItemDelete(query as CFDictionary)
         let status = SecItemAdd(query as CFDictionary, nil)
 
-        if status != errSecSuccess {
-            FMFLogger.identity.error("Keychain save failed [\(key.rawValue)]: \(status)")
+        if status == errSecSuccess {
+            return true
         }
-        return status == errSecSuccess
+
+        FMFLogger.identity.warning("Keychain save failed [\(key.rawValue)]: OSStatus \(status), using UserDefaults fallback")
+        saveFallback(key: key, value: value)
+        return true
     }
 
-    /// Returns the stored string, or `nil` if not found.
+    /// Returns the stored string from Keychain, falling back to UserDefaults.
     func load(key: KeychainKey) -> String? {
         let query: [String: Any] = [
             kSecClass as String:        kSecClassGenericPassword,
@@ -64,8 +73,17 @@ final class KeychainService: SecureStorage {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-        guard status == errSecSuccess, let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        if status == errSecSuccess, let data = result as? Data, let value = String(data: data, encoding: .utf8) {
+            return value
+        }
+
+        // Try UserDefaults fallback
+        if let fallback = loadFallback(key: key) {
+            FMFLogger.identity.debug("Loaded \(key.rawValue) from UserDefaults fallback")
+            return fallback
+        }
+
+        return nil
     }
 
     /// Deletes a Keychain item. Returns `true` on success or if the item didn't exist.
@@ -77,7 +95,22 @@ final class KeychainService: SecureStorage {
             kSecAttrAccount as String: key.rawValue
         ]
         let status = SecItemDelete(query as CFDictionary)
+        deleteFallback(key: key)
         return status == errSecSuccess || status == errSecItemNotFound
+    }
+
+    // MARK: - UserDefaults fallback
+
+    private func saveFallback(key: KeychainKey, value: String) {
+        UserDefaults.standard.set(value, forKey: Self.fallbackPrefix + key.rawValue)
+    }
+
+    private func loadFallback(key: KeychainKey) -> String? {
+        UserDefaults.standard.string(forKey: Self.fallbackPrefix + key.rawValue)
+    }
+
+    private func deleteFallback(key: KeychainKey) {
+        UserDefaults.standard.removeObject(forKey: Self.fallbackPrefix + key.rawValue)
     }
 }
 
