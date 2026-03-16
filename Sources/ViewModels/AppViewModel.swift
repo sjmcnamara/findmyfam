@@ -90,6 +90,21 @@ final class AppViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // When location authorization changes (user taps "Enable Location"
+        // in Settings), re-apply the pause setting so updates actually start.
+        locationService.$authorizationStatus
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] status in
+                guard let self else { return }
+                let isAuthorized = status == .authorizedWhenInUse || status == .authorizedAlways
+                if isAuthorized {
+                    FMFLogger.location.info("Location authorization granted — re-applying pause setting")
+                    self.applyLocationPauseSetting()
+                }
+            }
+            .store(in: &cancellables)
+
         // Seed own display name into NicknameStore, and broadcast to
         // all groups whenever it changes.
         settings.$displayName
