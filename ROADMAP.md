@@ -31,7 +31,7 @@ No accounts. No servers. No permissions needed.
 
 - **MLS (RFC 9420)** for group key management — epoch-based key rotation, forward secrecy, post-compromise security
 - **Marmot Protocol (MIP-00→03)** for MLS-over-Nostr event kinds (443/444/445)
-- **`mls-rs` (awslabs)** via UniFFI as the Swift-accessible MLS implementation
+- **`mdk-swift` (Marmot Protocol)** — official Swift package, precompiled XCFramework, MIP-00→03 already implemented
 - **`nostr-sdk-swift` (rust-nostr)** for relay connectivity, NIP-44 encryption, NIP-59 gift-wrap
 - **No NIP-29** (relay-enforced groups) — all group membership is cryptographic, not relay-enforced
 - **Location payloads** are app-layer content inside MLS application messages — fully encrypted
@@ -53,15 +53,18 @@ _Project skeleton, identity, relay connectivity_
 
 ---
 
-### v0.2 — MLS Core (Swift Bridge)
-_The hardest phase — Rust MLS library bridged to Swift_
+### v0.2 — MLS Core (mdk-swift)
+_Integrate the official Marmot Swift package — MIP-00→03 already implemented_
 
-- Compile `mls-rs` + `mls-rs-uniffi` for iOS targets (arm64, arm64-sim, x86_64-sim)
-- Package as `.xcframework`, integrate via local SPM package or binary target
-- Swift `MLSBridge` wrapper: create group, add member, remove member, encrypt message, decrypt message
-- MLS key storage: Keychain-backed credential store (signing keys, encryption keys)
-- Epoch tracking: persist current epoch, detect epoch advances
-- Unit tests: group lifecycle (create → add → remove → re-add), message encrypt/decrypt round-trips
+> **Note:** The Marmot team publishes [`mdk-swift`](https://github.com/marmot-protocol/mdk-swift) — an official Swift package backed by a precompiled UniFFI XCFramework wrapping `mdk-core` (OpenMLS). This gives us MIP-00→03 without building a Rust bridge ourselves.
+
+- Add `mdk-swift` as SPM dependency (pin to specific commit for stability)
+- `MLSService` wrapper: initialise MDK with Keychain-seeded keying material, expose typed Swift API
+- MLS key storage: Keychain-backed credential store for MDK signing identity + key packages
+- Group lifecycle: create group, publish KeyPackage (kind 443), accept Welcome (kind 444)
+- Epoch tracking: detect epoch advances, log rotations
+- Unit tests: group create/add/remove/re-add, message encrypt/decrypt round-trips
+- Integration test: two simulated identities exchange a Welcome and a message on a local relay
 
 ---
 
@@ -146,8 +149,8 @@ master
 
 - [Marmot Protocol](https://github.com/marmot-protocol/marmot) — MIP-00→05 specifications
 - [Marmot Dev Kit (MDK)](https://github.com/parres-hq/mdk) — Rust reference implementation
-- [mls-rs (awslabs)](https://github.com/awslabs/mls-rs) — RFC 9420 MLS, has UniFFI bindings
-- [mls-rs-uniffi](https://github.com/awslabs/mls-rs/tree/main/mls-rs-uniffi) — generated Swift bindings
+- [mdk-swift](https://github.com/marmot-protocol/mdk-swift) — official Marmot Swift package, precompiled XCFramework, MIP-00→03
+- [mls-rs (awslabs)](https://github.com/awslabs/mls-rs) — alternative RFC 9420 MLS if mdk-swift is insufficient
 - [nostr-sdk-swift](https://github.com/rust-nostr/nostr-sdk-swift) — Swift Nostr SDK
 - [NIP-44](https://nips.nostr.com/44) — Versioned encryption (ChaCha20 + HKDF)
 - [NIP-59](https://nips.nostr.com/59) — Gift wrap (metadata-hiding envelope)
