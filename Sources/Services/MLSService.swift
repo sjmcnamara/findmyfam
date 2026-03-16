@@ -37,18 +37,26 @@ actor MLSService {
         }
 
         let path = Self.defaultDBPath()
+        let hasLocalKey = Self.hasExistingLocalKey()
 
-        // Attempt 1: Keychain-managed key
-        do {
-            mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
-            isInitialised = true
-            FMFLogger.mls.info("MLSService initialised (keyring) at \(path)")
-            return
-        } catch {
-            FMFLogger.mls.warning("Keyring init failed: \(error.localizedDescription)")
+        // If we already have a local key, skip the keyring attempt entirely.
+        // newMdk() can modify the DB file (write an unencrypted header) before
+        // the keyring error, which corrupts the encrypted DB on the next launch
+        // and triggers the delete-and-recreate path — losing all groups.
+        if !hasLocalKey {
+            do {
+                mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
+                isInitialised = true
+                FMFLogger.mls.info("MLSService initialised (keyring) at \(path)")
+                return
+            } catch {
+                FMFLogger.mls.warning("Keyring init failed: \(error.localizedDescription)")
+            }
+        } else {
+            FMFLogger.mls.debug("Skipping keyring init — local key exists")
         }
 
-        // Attempt 2: App-managed key
+        // Open with app-managed key (creates key on first run)
         let key = Self.getOrCreateLocalKey()
         do {
             mdk = try newMdkWithKey(dbPath: path, encryptionKey: key, config: nil)
@@ -59,15 +67,23 @@ actor MLSService {
             FMFLogger.mls.warning("Local key init failed: \(error.localizedDescription)")
         }
 
-        // Attempt 3: Delete stale DB and start fresh
+        // Last resort: delete stale DB and start fresh
         FMFLogger.mls.warning("Deleting stale MLS database at \(path) and recreating")
         Self.deleteDatabase(at: path)
 
-        // Generate a fresh key (old key may correspond to a different encryption state)
         let freshKey = Self.createFreshLocalKey()
         mdk = try newMdkWithKey(dbPath: path, encryptionKey: freshKey, config: nil)
         isInitialised = true
         FMFLogger.mls.info("MLSService initialised (fresh database) at \(path)")
+    }
+
+    /// Check whether a local encryption key already exists in UserDefaults.
+    /// Used to decide whether to skip the keyring attempt — once we've
+    /// successfully created a local-key-encrypted DB, we must never let
+    /// `newMdk()` touch that DB file again.
+    private static func hasExistingLocalKey() -> Bool {
+        guard let data = UserDefaults.standard.data(forKey: "fmf.mdk.db.encryptionKey") else { return false }
+        return data.count == 32
     }
 
     /// Get or create a 32-byte encryption key stored in UserDefaults.
