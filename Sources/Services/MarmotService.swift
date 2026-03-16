@@ -267,8 +267,15 @@ final class MarmotService: ObservableObject {
             // events from groups we don't belong to — log at debug, not error.
             FMFLogger.marmot.debug("MLS skipped event kind \(kind): \(error.localizedDescription)")
         } catch {
-            lastError = error.localizedDescription
-            FMFLogger.marmot.error("Error handling event kind \(kind): \(error)")
+            // MDK errors like "group not found" are expected for events from
+            // groups we don't belong to (kind-445 filter is relay-wide).
+            let msg = String(describing: error)
+            if msg.contains("group not found") || msg.contains("not found") {
+                FMFLogger.marmot.debug("MDK skipped event kind \(kind): \(msg)")
+            } else {
+                lastError = error.localizedDescription
+                FMFLogger.marmot.error("Error handling event kind \(kind): \(error)")
+            }
         }
     }
 

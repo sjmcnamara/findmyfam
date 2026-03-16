@@ -29,6 +29,13 @@ actor MLSService {
         serviceId: String = "org.findmyfam",
         dbKeyId: String   = "mdk.db.key"
     ) throws {
+        // Guard against re-initialisation — calling twice can lock the DB
+        // and trigger the delete-and-recreate recovery path, losing all groups.
+        guard !isInitialised else {
+            FMFLogger.mls.debug("MLSService already initialised, skipping")
+            return
+        }
+
         let path = Self.defaultDBPath()
 
         // Attempt 1: Keychain-managed key

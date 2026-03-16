@@ -37,6 +37,8 @@ final class AppViewModel: ObservableObject {
     /// MLS initialisation error surfaced to the UI (non-fatal — app works without it).
     @Published private(set) var mlsError: String?
 
+    /// Tracks whether onAppear has completed — prevents duplicate startup.
+    private var didStart = false
     private var cancellables = Set<AnyCancellable>()
 
     init() {
@@ -108,8 +110,12 @@ final class AppViewModel: ObservableObject {
 
     /// Called once when the app becomes active.
     func onAppear() async {
+        guard !didStart else { return }
+        didStart = true
+
         guard let keys = identity.keys else {
             FMFLogger.relay.error("No identity available — cannot connect to relays")
+            didStart = false
             return
         }
 
