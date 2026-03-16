@@ -6,6 +6,26 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.5.1] — 2026-03-16
+
+### Added
+- Display name auto-broadcast — nicknames sent to all groups on app launch, name change, group create, and group join
+- `NicknameStore` seeded with own display name at startup
+- `ChatViewModel` and `GroupDetailViewModel` reactively re-resolve display names when `NicknameStore` updates
+- `MarmotService.lastJoinedGroupId` publisher for post-welcome nickname broadcast
+
+### Fixed
+- Display names not shown — only hex pubkey was visible because nicknames were never written to NicknameStore or broadcast to groups
+- MDK "group not found" errors flooding console — demoted to debug (kind-445 subscription is relay-wide, so unknown group events are expected)
+- Groups lost on app relaunch — `MLSService.initialise()` and `AppViewModel.onAppear()` now guard against double-invocation that could lock the DB and trigger delete-and-recreate recovery
+- Chat messages displayed newest-first — reversed to natural chat order (oldest top, newest bottom) with `.defaultScrollAnchor(.bottom)`
+- GroupDetailView stuck after adding a member — now auto-dismisses back to chat on success
+- Update interval observer race — Combine subscriptions moved from async `onAppear()` to `init()`
+- Throttle timer resets on interval change so shorter intervals take effect immediately
+- Version bumped to 0.5.1
+
+---
+
 ## [0.5.0] — 2026-03-16
 
 ### Added
