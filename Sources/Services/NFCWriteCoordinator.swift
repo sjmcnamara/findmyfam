@@ -9,8 +9,7 @@ import CoreNFC
 final class NFCWriteCoordinator: NSObject, ObservableObject {
 
     /// Whether NFC tag writing is available.
-    /// TODO: Restore to `NFCNDEFReaderSession.readingAvailable` once portal entitlement is approved.
-    static var isAvailable: Bool { false }
+    static var isAvailable: Bool { NFCNDEFReaderSession.readingAvailable }
 
     @Published private(set) var status: WriteStatus = .idle
 
