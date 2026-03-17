@@ -196,7 +196,7 @@ struct NearbyShareView: View {
                     } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "iphone.radiowaves.left.and.right")
-                                .foregroundStyle(.accentColor)
+                                .foregroundStyle(Color.accentColor)
                                 .font(.title3)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(peer.displayName)
