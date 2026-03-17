@@ -59,6 +59,7 @@ struct NearbyShareView: View {
             }
             .onAppear {
                 animating = true
+                coordinator.onInviteReceived = onInviteReceived   // wire callback before starting
                 switch role {
                 case .advertiser(let code): coordinator.startAdvertising(inviteCode: code)
                 case .browser:             coordinator.startBrowsing()
