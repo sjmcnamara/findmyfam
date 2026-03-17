@@ -114,7 +114,8 @@
       "Bash(git pull:*)",
       "Bash(xcodebuild -scheme FindMyFam -destination 'platform=iOS Simulator,name=iPhone 16' build)",
       "Bash(ls /Users/stephen.mcnamara/Development/findmyfam/*.md)",
-      "Bash(encryption…\" → \"Loading groups…\":*)"
+      "Bash(encryption…\" → \"Loading groups…\":*)",
+      "Bash(xcodebuild -scheme FindMyFam -destination 'generic/platform=iOS' -configuration Debug build)"
     ]
   }
 }

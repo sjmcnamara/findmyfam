@@ -258,6 +258,15 @@ final class AppViewModel: ObservableObject {
         guard !didStart else { return }
         didStart = true
 
+        // Yield to the main run loop once so SwiftUI can commit the first
+        // SplashView frame before we start heavy async work.  Without this,
+        // on cold launch the .task fires before the first frame is drawn and
+        // the splash never reaches the screen.
+        await Task.yield()
+
+        // Record the time so we can enforce a minimum splash display duration.
+        let splashStart = ContinuousClock.now
+
         guard let keys = identity.keys else {
             FMFLogger.relay.error("No identity available — cannot connect to relays")
             didStart = false
@@ -327,6 +336,15 @@ final class AppViewModel: ObservableObject {
 
         // Now publish to UI — GroupListView will receive a fully loaded marmot.
         self.marmot = marmotService
+
+        // Enforce a minimum splash display time so the animation has time to
+        // play even when startup is very fast (warm relay, small group list).
+        let minimumSplash: Duration = .seconds(1.5)
+        let elapsed = ContinuousClock.now - splashStart
+        if elapsed < minimumSplash {
+            try? await Task.sleep(for: minimumSplash - elapsed)
+        }
+
         startupPhase = .ready
 
         // Auto-broadcast display name when we join a group via welcome
@@ -353,6 +371,11 @@ final class AppViewModel: ObservableObject {
         // Broadcast display name to all groups so other members see it
         await broadcastNicknameToAllGroups()
 
+        // Re-publish key package if there are pending invites awaiting admin
+        // approval.  MLS key packages expire and are consumed on first use, so
+        // a fresh one must be available whenever the admin taps "Approve".
+        await refreshKeyPackageIfNeeded(marmot: marmotService)
+
         // Start Marmot subscriptions LAST — handleNotifications() runs an
         // infinite event loop that never returns, so everything above must
         // complete before this call.
@@ -361,6 +384,30 @@ final class AppViewModel: ObservableObject {
             await marmotService.startSubscriptions()
         } else {
             FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
+        }
+    }
+
+    // MARK: - Key Package Refresh
+
+    /// Re-publish a fresh MLS key package if there are pending group invites
+    /// waiting for admin approval.  Key packages expire and are consumed on use,
+    /// so without this the admin gets "noKeyPackageFound" days after the invite
+    /// was first sent.
+    private func refreshKeyPackageIfNeeded(marmot: MarmotService) async {
+        let pending = pendingInviteStore.pendingInvites
+        guard !pending.isEmpty else { return }
+
+        // Publish to all currently-enabled relays — that's where the admin's
+        // fetchKeyPackage call will look.
+        let relays = settings.relays.filter(\.isEnabled).map(\.url)
+        guard !relays.isEmpty else { return }
+
+        do {
+            try await marmot.publishKeyPackage(relays: relays)
+            FMFLogger.marmot.info("Refreshed key package for \(pending.count) pending invite(s) on \(relays.count) relay(s)")
+        } catch {
+            // Non-fatal — admin will get an error and can ask the invitee to re-open
+            FMFLogger.marmot.warning("Key package refresh failed: \(error)")
         }
     }
 

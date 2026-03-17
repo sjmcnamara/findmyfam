@@ -8,7 +8,7 @@ struct SplashView: View {
 
     let phase: AppViewModel.StartupPhase
 
-    @State private var appeared = false
+    @State private var logoScale: CGFloat = 0.75
     @State private var ringsAnimating = false
 
     var body: some View {
@@ -23,10 +23,12 @@ struct SplashView: View {
             }
         }
         .onAppear {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) {
-                appeared = true
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.72)) {
+                logoScale = 1.0
             }
-            ringsAnimating = true
+            withAnimation(.easeIn(duration: 0.3).delay(0.15)) {
+                ringsAnimating = true
+            }
         }
     }
 
@@ -34,10 +36,7 @@ struct SplashView: View {
 
     private var background: some View {
         LinearGradient(
-            colors: [
-                Color.accentColor,
-                Color.accentColor.opacity(0.75)
-            ],
+            colors: [Color.accentColor, Color.accentColor.opacity(0.75)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -48,14 +47,13 @@ struct SplashView: View {
 
     private var logoSection: some View {
         VStack(spacing: 24) {
-            // Pulsing rings + icon
             ZStack {
+                // Expanding rings — always rendered; opacity driven by ringsAnimating
                 ForEach(0..<3, id: \.self) { i in
                     Circle()
-                        .stroke(.white.opacity(0.18), lineWidth: 1.5)
+                        .stroke(.white.opacity(ringsAnimating ? 0.18 : 0), lineWidth: 1.5)
                         .frame(width: ringSize(i), height: ringSize(i))
-                        .scaleEffect(ringsAnimating ? 1.5 : 1)
-                        .opacity(ringsAnimating ? 0 : 1)
+                        .scaleEffect(ringsAnimating ? 1.0 : 0.6)
                         .animation(
                             .easeOut(duration: 2.2)
                                 .repeatForever(autoreverses: false)
@@ -70,15 +68,12 @@ struct SplashView: View {
                     .symbolEffect(.pulse, isActive: phase != .ready)
             }
             .frame(width: 220, height: 220)
-            .scaleEffect(appeared ? 1 : 0.7)
-            .opacity(appeared ? 1 : 0)
+            .scaleEffect(logoScale)
 
-            // Wordmark
             Text("Famstr")
                 .font(.system(size: 44, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
-                .scaleEffect(appeared ? 1 : 0.85)
-                .opacity(appeared ? 1 : 0)
+                .scaleEffect(logoScale)
         }
     }
 
@@ -99,6 +94,5 @@ struct SplashView: View {
                 .animation(.easeInOut(duration: 0.3), value: phase.message)
         }
         .padding(.bottom, 56)
-        .opacity(appeared ? 1 : 0)
     }
 }
