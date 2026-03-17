@@ -29,7 +29,13 @@ final class NearbyShareCoordinator: NSObject, ObservableObject {
     @Published private(set) var nearbyPeers: [MCPeerID] = []
 
     /// Called on the invitee side when an invite code is received.
-    var onInviteReceived: ((String) -> Void)?
+    /// The async closure should join the group and return the approval URL
+    /// to send back to the admin through the same MPC channel.
+    var onInviteReceived: ((String) async -> URL?)?
+
+    /// Called on the admin side when the invitee's approval URL arrives
+    /// through the same MPC channel after they have joined.
+    var onApprovalReceived: ((String) -> Void)?
 
     // MARK: - Private
 
@@ -139,10 +145,21 @@ extension NearbyShareCoordinator: MCSessionDelegate {
     nonisolated func session(_ session: MCSession,
                               didReceive data: Data,
                               fromPeer peerID: MCPeerID) {
-        guard let code = String(data: data, encoding: .utf8) else { return }
+        guard let str = String(data: data, encoding: .utf8) else { return }
         Task { @MainActor in
-            state = .success
-            onInviteReceived?(code)
+            if str.hasPrefix("famstr://addmember/") {
+                // Admin side: invitee's npub returned after joining the group.
+                onApprovalReceived?(str)
+            } else {
+                // Invitee side: invite code received from admin.
+                // Join the group, then send the approval URL back if available.
+                state = .success
+                let approvalURL = await onInviteReceived?(str)
+                if let url = approvalURL,
+                   let responseData = url.absoluteString.data(using: .utf8) {
+                    try? session.send(responseData, toPeers: [peerID], with: .reliable)
+                }
+            }
         }
     }
 

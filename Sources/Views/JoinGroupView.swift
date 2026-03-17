@@ -106,10 +106,13 @@ struct JoinGroupView: View {
                 }
             }
             .sheet(isPresented: $showNearbyShare) {
-                NearbyShareView(role: .browser) { received in
+                NearbyShareView(role: .browser, onInviteReceived: { received in
                     inviteCode = extractCode(from: received)
-                    Task { await joinGroup() }
-                }
+                    await joinGroup()
+                    // Return the approval URL so the coordinator sends it back
+                    // to the admin through the same MPC session automatically.
+                    return approvalURL()
+                })
             }
         }
     }

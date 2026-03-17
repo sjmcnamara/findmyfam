@@ -4,6 +4,7 @@ import SwiftUI
 struct InviteShareView: View {
     let inviteCode: String
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var appViewModel: AppViewModel
     @State private var copied = false
     @State private var showNearbyShare = false
 
@@ -67,7 +68,17 @@ struct InviteShareView: View {
                 }
             }
             .sheet(isPresented: $showNearbyShare) {
-                NearbyShareView(role: .advertiser(inviteCode: inviteURL?.absoluteString ?? inviteCode))
+                NearbyShareView(
+                    role: .advertiser(inviteCode: inviteURL?.absoluteString ?? inviteCode),
+                    onApprovalReceived: { urlString in
+                        // Invitee's npub arrived through the MPC session —
+                        // route it through the normal deep-link handler so the
+                        // "Approve Member?" alert fires automatically.
+                        if let url = URL(string: urlString) {
+                            appViewModel.handleIncomingURL(url)
+                        }
+                    }
+                )
             }
         }
     }

@@ -20,8 +20,13 @@ struct NearbyShareView: View {
     }
 
     let role: Role
-    /// Called on the browser side when an invite code is received.
-    var onInviteReceived: ((String) -> Void)?
+    /// Invitee side: called with the received invite code.
+    /// Join the group inside the closure and return the approval URL to
+    /// send back to the admin automatically through the same MPC session.
+    var onInviteReceived: ((String) async -> URL?)?
+    /// Admin side: called with the raw `famstr://addmember/` URL string
+    /// after the invitee has joined and sent their npub back.
+    var onApprovalReceived: ((String) -> Void)?
 
     @StateObject private var coordinator: NearbyShareCoordinator
     @Environment(\.dismiss) private var dismiss
@@ -29,9 +34,11 @@ struct NearbyShareView: View {
 
     init(role: Role,
          displayName: String = UIDevice.current.name,
-         onInviteReceived: ((String) -> Void)? = nil) {
+         onInviteReceived: ((String) async -> URL?)? = nil,
+         onApprovalReceived: ((String) -> Void)? = nil) {
         self.role = role
         self.onInviteReceived = onInviteReceived
+        self.onApprovalReceived = onApprovalReceived
         _coordinator = StateObject(wrappedValue: NearbyShareCoordinator(displayName: displayName))
     }
 
@@ -59,7 +66,14 @@ struct NearbyShareView: View {
             }
             .onAppear {
                 animating = true
-                coordinator.onInviteReceived = onInviteReceived   // wire callback before starting
+                coordinator.onInviteReceived = onInviteReceived
+                // Wrap the approval callback so this sheet auto-dismisses once
+                // the admin has received the invitee's npub.
+                let d = dismiss
+                coordinator.onApprovalReceived = { url in
+                    onApprovalReceived?(url)
+                    d()
+                }
                 switch role {
                 case .advertiser(let code): coordinator.startAdvertising(inviteCode: code)
                 case .browser:             coordinator.startBrowsing()
@@ -69,7 +83,7 @@ struct NearbyShareView: View {
                 coordinator.stop()
             }
             .onChange(of: coordinator.state) { _, newState in
-                // Auto-dismiss the browser side after a brief success pause.
+                // Auto-dismiss the browser (invitee) side after a brief success pause.
                 if case .success = newState, case .browser = role {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { dismiss() }
                 }
@@ -178,7 +192,7 @@ struct NearbyShareView: View {
         case .connecting:   return "Establishing a secure connection…"
         case .success:
             switch role {
-            case .advertiser: return "The invite was delivered successfully."
+            case .advertiser: return "Invite delivered. Waiting for member to join…"
             case .browser:    return "Joining the group now…"
             }
         case .failed(let msg): return msg
