@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// Sheet showing a QR code and copyable invite code for sharing.
+/// Sheet showing sharing options for a group invite.
 struct InviteShareView: View {
     let inviteCode: String
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
-    @StateObject private var nfcWriter = NFCWriteCoordinator()
+    @State private var showNearbyShare = false
 
     /// The `famstr://` URL for this invite (preferred share target).
     private var inviteURL: URL? { try? InviteCode.decode(from: inviteCode).asURL() }
@@ -24,22 +24,20 @@ struct InviteShareView: View {
                     .frame(width: 200, height: 200)
                     .padding()
 
+                // Share Nearby — phone-to-phone via MultipeerConnectivity
+                Button {
+                    showNearbyShare = true
+                } label: {
+                    Label("Share Nearby", systemImage: "wave.3.right.circle.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .padding(.horizontal, 40)
+
                 // Share via AirDrop / Messages / etc. — shares the famstr:// URL
                 if let url = inviteURL {
                     ShareLink(item: url) {
                         Label("Share via AirDrop / Messages…", systemImage: "square.and.arrow.up")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .padding(.horizontal, 40)
-                }
-
-                // NFC write — only shown on NFC-capable devices
-                if NFCWriteCoordinator.isAvailable, let url = inviteURL {
-                    Button {
-                        nfcWriter.write(url: url)
-                    } label: {
-                        Label("Write to NFC Tag", systemImage: "wave.3.left")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
@@ -67,6 +65,9 @@ struct InviteShareView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
+            }
+            .sheet(isPresented: $showNearbyShare) {
+                NearbyShareView(role: .advertiser(inviteCode: inviteURL?.absoluteString ?? inviteCode))
             }
         }
     }

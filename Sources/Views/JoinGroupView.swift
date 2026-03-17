@@ -1,8 +1,7 @@
 import SwiftUI
-import CoreNFC
 
 /// Sheet for joining a group via invite code.
-/// Accepts a code via: paste, QR scan, NFC tag read, or deep link pre-fill.
+/// Accepts a code via: paste, QR scan, nearby share, or deep link pre-fill.
 struct JoinGroupView: View {
     @ObservedObject var viewModel: GroupListViewModel
     var initialCode: String?
@@ -14,7 +13,7 @@ struct JoinGroupView: View {
     @State private var error: String?
     @State private var didJoin = false
     @State private var showScanner = false
-    @StateObject private var nfcReader = NFCReadCoordinator()
+    @State private var showNearbyShare = false
 
     var body: some View {
         NavigationStack {
@@ -31,18 +30,15 @@ struct JoinGroupView: View {
                 // Quick-action buttons
                 Section {
                     Button {
+                        showNearbyShare = true
+                    } label: {
+                        Label("Join Nearby", systemImage: "wave.3.left.circle.fill")
+                    }
+
+                    Button {
                         showScanner = true
                     } label: {
                         Label("Scan QR Code", systemImage: "qrcode.viewfinder")
-                    }
-
-                    if NFCNDEFReaderSession.readingAvailable {
-                        Button {
-                            nfcReader.start()
-                        } label: {
-                            Label(nfcReader.isReading ? "Scanning NFC…" : "Tap NFC Tag", systemImage: "wave.3.right")
-                        }
-                        .disabled(nfcReader.isReading)
                     }
                 }
 
@@ -108,8 +104,10 @@ struct JoinGroupView: View {
                 if let code = initialCode, !code.isEmpty {
                     inviteCode = code
                 }
-                nfcReader.onScan = { scanned in
-                    inviteCode = extractCode(from: scanned)
+            }
+            .sheet(isPresented: $showNearbyShare) {
+                NearbyShareView(role: .browser) { received in
+                    inviteCode = extractCode(from: received)
                     Task { await joinGroup() }
                 }
             }

@@ -179,8 +179,18 @@ final class MarmotService: ObservableObject {
     /// Add a member to a group: fetch their key package, run MLS addMembers,
     /// gift-wrap the welcome, and publish group evolution events.
     func addMember(publicKeyHex memberHex: String, toGroup groupId: String) async throws {
-        // 1. Fetch the member's key package
-        let kpEvents = try await fetchKeyPackage(for: memberHex)
+        // 1. Fetch the member's key package.
+        //    Retry up to 3 times with a 2 s delay — the invitee's key package
+        //    may not have propagated to the relay immediately after acceptInvite.
+        var kpEvents: [Event] = []
+        for attempt in 1...3 {
+            kpEvents = try await fetchKeyPackage(for: memberHex)
+            if !kpEvents.isEmpty { break }
+            if attempt < 3 {
+                FMFLogger.marmot.info("Key package not found for \(memberHex) (attempt \(attempt)/3) — retrying in 2 s")
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+            }
+        }
         guard let kpEvent = kpEvents.first else {
             throw MarmotError.noKeyPackageFound(memberHex)
         }

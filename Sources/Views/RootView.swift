@@ -30,12 +30,26 @@ struct RootView: View {
                 Text("\(String(approval.pubkeyHex.prefix(8)))… wants to join \(groupName).")
             }
         }
+        .alert("Approval Failed", isPresented: errorBinding) {
+            Button("OK") { appViewModel.approvalError = nil }
+        } message: {
+            if let msg = appViewModel.approvalError {
+                Text(msg)
+            }
+        }
     }
 
     private var approvalBinding: Binding<Bool> {
         Binding(
             get: { appViewModel.pendingApproval != nil },
             set: { if !$0 { appViewModel.pendingApproval = nil } }
+        )
+    }
+
+    private var errorBinding: Binding<Bool> {
+        Binding(
+            get: { appViewModel.approvalError != nil },
+            set: { if !$0 { appViewModel.approvalError = nil } }
         )
     }
 

@@ -18,10 +18,32 @@
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>org.findmyfam.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>famstr</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>Famstr uses NFC to receive invite codes by tapping phones together.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_famstr._tcp</string>
+		<string>_famstr._udp</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Famstr uses the camera to scan QR invite codes.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Famstr uses the local network to share invites with nearby family members.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Famstr needs background location access to keep your family updated when the app is in the background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
@@ -31,6 +53,8 @@
 		<string>location</string>
 		<string>fetch</string>
 	</array>
+	<key>UIFileSharingEnabled</key>
+	<true/>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
@@ -38,9 +62,5 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
 </dict>
 </plist>

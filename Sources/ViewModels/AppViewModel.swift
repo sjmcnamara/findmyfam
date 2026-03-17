@@ -47,6 +47,9 @@ final class AppViewModel: ObservableObject {
     /// Non-nil when the inviter's app has received an add-member deep link.
     @Published var pendingApproval: PendingApprovalRequest?
 
+    /// Non-nil when an approval attempt failed — surfaced as an error alert.
+    @Published var approvalError: String?
+
     /// GroupListViewModel — owned here so it survives SwiftUI view identity
     /// changes. Created once after MarmotService is ready.
     @Published private(set) var groupListViewModel: GroupListViewModel?
@@ -217,7 +220,17 @@ final class AppViewModel: ObservableObject {
             FMFLogger.marmot.info("Approved member \(approval.pubkeyHex.prefix(8)) into group \(approval.groupId)")
         } catch {
             FMFLogger.marmot.error("Failed to approve member: \(error)")
+            approvalError = errorMessage(for: error)
         }
+    }
+
+    private func errorMessage(for error: Error) -> String {
+        let desc = error.localizedDescription
+        // Translate common MarmotError cases into plain English.
+        if desc.contains("noKeyPackageFound") || desc.contains("key package") {
+            return "Could not find this person's key package on the relay. Ask them to re-open the app and share the invite again."
+        }
+        return desc
     }
 
     /// Called once when the app becomes active.
