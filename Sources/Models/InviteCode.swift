@@ -23,12 +23,27 @@ struct InviteCode: Codable, Equatable {
         return data.base64EncodedString()
     }
 
+    /// Wrap the invite in a `famstr://invite/<code>` deep-link URL.
+    func asURL() -> URL {
+        URL(string: "famstr://invite/\(encode())")!
+    }
+
     /// Decode an invite from a base64-encoded string.
     static func decode(from encoded: String) throws -> InviteCode {
         guard let data = Data(base64Encoded: encoded) else {
             throw InviteError.invalidBase64
         }
         return try JSONDecoder().decode(InviteCode.self, from: data)
+    }
+
+    /// Extract an invite from a `famstr://invite/<code>` URL.
+    /// Also accepts a raw base64 string for backwards compatibility.
+    static func from(url: URL) throws -> InviteCode {
+        if url.scheme == "famstr", url.host == "invite",
+           let code = url.pathComponents.dropFirst().first {
+            return try decode(from: code)
+        }
+        return try decode(from: url.absoluteString)
     }
 
     // MARK: - Errors

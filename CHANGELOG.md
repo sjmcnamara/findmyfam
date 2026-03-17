@@ -6,6 +6,25 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.7.0] — 2026-03-17
+
+### Added
+- **AirDrop / deep-link invites** — invites are now shared as `famstr://invite/<code>` URLs; accepting an AirDrop or tapping a link opens the app and pre-fills the Join Group sheet — no copy-paste required
+- **QR code scanning** — "Scan QR Code" button in Join Group opens a live camera scanner; pointing at an inviter's QR code auto-populates and submits the join request
+- **NFC read** — "Tap NFC Tag" button (iPhone 7+) reads an NDEF invite URL from any NFC tag and auto-joins
+- **NFC write** — "Write to NFC Tag" button in the Invite sheet writes the `famstr://` invite URL to a blank NFC sticker; anyone can tap their phone to the sticker to join
+- `InviteCode.asURL()` — wraps the base64 code in a `famstr://invite/` deep-link URL
+- `InviteCode.from(url:)` — decodes an invite from a `famstr://` URL or raw base64 (backwards compatible)
+- `NFCReadCoordinator` — `@StateObject` helper for NDEF tag reading
+- `NFCWriteCoordinator` — `@StateObject` helper for writing NDEF URL records to NFC tags
+- `QRScannerView` — AVCaptureSession-based QR scanner with scan-frame guide
+
+### Changed
+- **InviteShareView** — "Share" button now shares the `famstr://` URL (AirDrop auto-handles it); QR now encodes the URL; legacy raw code still shown for copy
+- **JoinGroupView** — accepts `initialCode` param for deep-link/QR/NFC pre-fill; added QR scan and NFC read buttons
+
+---
+
 ## [0.6.1] — 2026-03-17
 
 ### Added

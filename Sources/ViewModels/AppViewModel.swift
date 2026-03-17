@@ -167,6 +167,18 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Deep Link Handling (v0.7)
+
+    /// Route an incoming `famstr://invite/<code>` URL to the join sheet.
+    func handleIncomingURL(_ url: URL) {
+        guard let code = try? InviteCode.from(url: url).encode() else {
+            FMFLogger.marmot.warning("handleIncomingURL: failed to decode invite from \(url)")
+            return
+        }
+        groupListViewModel?.pendingJoinCode = code
+        groupListViewModel?.showJoinGroup = true
+    }
+
     /// Called once when the app becomes active.
     func onAppear() async {
         guard !didStart else { return }

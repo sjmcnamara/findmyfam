@@ -12,6 +12,9 @@ struct FindMyFamApp: App {
                 .task {
                     await appViewModel.onAppear()
                 }
+                .onOpenURL { url in
+                    appViewModel.handleIncomingURL(url)
+                }
         }
     }
 }

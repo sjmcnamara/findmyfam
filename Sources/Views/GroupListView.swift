@@ -36,8 +36,10 @@ struct GroupListView: View {
             .sheet(isPresented: $viewModel.showCreateGroup) {
                 CreateGroupView(viewModel: viewModel)
             }
-            .sheet(isPresented: $viewModel.showJoinGroup) {
-                JoinGroupView(viewModel: viewModel)
+            .sheet(isPresented: $viewModel.showJoinGroup, onDismiss: {
+                viewModel.pendingJoinCode = nil
+            }) {
+                JoinGroupView(viewModel: viewModel, initialCode: viewModel.pendingJoinCode)
             }
             .refreshable {
                 await viewModel.refresh()

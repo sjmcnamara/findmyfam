@@ -11,6 +11,8 @@ final class GroupListViewModel: ObservableObject {
     @Published private(set) var groups: [GroupListItem] = []
     @Published var showCreateGroup = false
     @Published var showJoinGroup = false
+    /// Pre-populated invite code delivered via deep link / QR scan / NFC.
+    @Published var pendingJoinCode: String?
 
     // MARK: - Dependencies
 
