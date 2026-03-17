@@ -39,7 +39,11 @@ struct GroupListView: View {
             .sheet(isPresented: $viewModel.showJoinGroup, onDismiss: {
                 viewModel.pendingJoinCode = nil
             }) {
-                JoinGroupView(viewModel: viewModel, initialCode: viewModel.pendingJoinCode)
+                JoinGroupView(
+                    viewModel: viewModel,
+                    initialCode: viewModel.pendingJoinCode,
+                    myPubkeyHex: appViewModel.myPubkeyHex
+                )
             }
             .refreshable {
                 await viewModel.refresh()

@@ -36,6 +36,17 @@ final class AppViewModel: ObservableObject {
     /// Tracks invites where key package was published but Welcome not yet received.
     let pendingInviteStore: PendingInviteStore
 
+    // MARK: - Pending Approval (v0.7)
+
+    /// A member approval request received via `famstr://addmember/` deep link.
+    struct PendingApprovalRequest {
+        let pubkeyHex: String
+        let groupId: String
+    }
+
+    /// Non-nil when the inviter's app has received an add-member deep link.
+    @Published var pendingApproval: PendingApprovalRequest?
+
     /// GroupListViewModel — owned here so it survives SwiftUI view identity
     /// changes. Created once after MarmotService is ready.
     @Published private(set) var groupListViewModel: GroupListViewModel?
@@ -169,14 +180,44 @@ final class AppViewModel: ObservableObject {
 
     // MARK: - Deep Link Handling (v0.7)
 
-    /// Route an incoming `famstr://invite/<code>` URL to the join sheet.
+    /// Route incoming `famstr://` URLs to the appropriate flow.
     func handleIncomingURL(_ url: URL) {
-        guard let code = try? InviteCode.from(url: url).encode() else {
-            FMFLogger.marmot.warning("handleIncomingURL: failed to decode invite from \(url)")
-            return
+        guard url.scheme == "famstr" else { return }
+        switch url.host {
+        case "invite":
+            guard let code = try? InviteCode.from(url: url).encode() else {
+                FMFLogger.marmot.warning("handleIncomingURL: failed to decode invite from \(url)")
+                return
+            }
+            groupListViewModel?.pendingJoinCode = code
+            groupListViewModel?.showJoinGroup = true
+
+        case "addmember":
+            let parts = url.pathComponents.dropFirst()
+            guard parts.count >= 2 else {
+                FMFLogger.marmot.warning("handleIncomingURL: malformed addmember URL \(url)")
+                return
+            }
+            let pubkeyHex = String(parts[parts.startIndex])
+            let groupId   = String(parts[parts.index(parts.startIndex, offsetBy: 1)])
+                                .removingPercentEncoding ?? String(parts[parts.index(parts.startIndex, offsetBy: 1)])
+            pendingApproval = PendingApprovalRequest(pubkeyHex: pubkeyHex, groupId: groupId)
+
+        default:
+            FMFLogger.marmot.warning("handleIncomingURL: unknown host in \(url)")
         }
-        groupListViewModel?.pendingJoinCode = code
-        groupListViewModel?.showJoinGroup = true
+    }
+
+    /// Add the member from a pending approval request to their group.
+    func approvePendingMember() async {
+        guard let approval = pendingApproval else { return }
+        pendingApproval = nil
+        do {
+            try await marmot?.addMember(publicKeyHex: approval.pubkeyHex, toGroup: approval.groupId)
+            FMFLogger.marmot.info("Approved member \(approval.pubkeyHex.prefix(8)) into group \(approval.groupId)")
+        } catch {
+            FMFLogger.marmot.error("Failed to approve member: \(error)")
+        }
     }
 
     /// Called once when the app becomes active.

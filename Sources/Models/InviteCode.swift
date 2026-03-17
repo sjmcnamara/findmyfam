@@ -46,6 +46,18 @@ struct InviteCode: Codable, Equatable {
         return try decode(from: url.absoluteString)
     }
 
+    // MARK: - Approval URL
+
+    /// Build a `famstr://addmember/<pubkeyHex>/<groupId>` URL that the
+    /// invitee shares back with the inviter to request group admission.
+    static func approvalURL(pubkeyHex: String, groupId: String) -> URL? {
+        // groupId may contain characters that are invalid in a URL path component
+        guard let encodedGroup = groupId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            return nil
+        }
+        return URL(string: "famstr://addmember/\(pubkeyHex)/\(encodedGroup)")
+    }
+
     // MARK: - Errors
 
     enum InviteError: LocalizedError {

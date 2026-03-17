@@ -20,6 +20,23 @@ struct RootView: View {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
         }
+        .alert("Approve Member?", isPresented: approvalBinding) {
+            Button("Approve") { Task { await appViewModel.approvePendingMember() } }
+            Button("Dismiss", role: .cancel) { appViewModel.pendingApproval = nil }
+        } message: {
+            if let approval = appViewModel.pendingApproval {
+                let groupName = appViewModel.groupListViewModel?.groups
+                    .first(where: { $0.id == approval.groupId })?.name ?? "a group"
+                Text("\(String(approval.pubkeyHex.prefix(8)))… wants to join \(groupName).")
+            }
+        }
+    }
+
+    private var approvalBinding: Binding<Bool> {
+        Binding(
+            get: { appViewModel.pendingApproval != nil },
+            set: { if !$0 { appViewModel.pendingApproval = nil } }
+        )
     }
 
     @ViewBuilder
