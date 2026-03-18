@@ -127,7 +127,7 @@ struct NearbyShareView: View {
 
     private var isPulsing: Bool {
         switch coordinator.state {
-        case .advertising, .scanning, .found, .connecting: return true
+        case .advertising, .scanning, .found, .connecting, .joining: return true
         default: return false
         }
     }
@@ -174,6 +174,7 @@ struct NearbyShareView: View {
         case .scanning:     return "Looking for Devices…"
         case .found:        return "Device Found"
         case .connecting:   return "Connecting…"
+        case .joining:      return "Joining Group…"
         case .success:
             switch role {
             case .advertiser: return "Invite Sent!"
@@ -190,6 +191,7 @@ struct NearbyShareView: View {
         case .scanning:     return "Hold your phone close to the group admin's phone."
         case .found:        return "Tap a device below to receive the invite."
         case .connecting:   return "Establishing a secure connection…"
+        case .joining:      return "Setting up encryption. This will only take a moment."
         case .success:
             switch role {
             case .advertiser: return "Invite delivered. Waiting for member to join…"

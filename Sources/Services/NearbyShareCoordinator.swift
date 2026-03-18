@@ -21,6 +21,7 @@ final class NearbyShareCoordinator: NSObject, ObservableObject {
         case scanning       // invitee: looking for a nearby advertiser
         case found          // invitee: at least one peer is visible
         case connecting     // handshake in progress
+        case joining        // invitee: joinGroup() running, approval URL being sent
         case success        // invite code transferred successfully
         case failed(String)
     }
@@ -152,13 +153,15 @@ extension NearbyShareCoordinator: MCSessionDelegate {
                 onApprovalReceived?(str)
             } else {
                 // Invitee side: invite code received from admin.
-                // Join the group, then send the approval URL back if available.
-                state = .success
+                // Join the group and send the approval URL back BEFORE flagging
+                // success — this keeps the session alive for the full round-trip.
+                state = .joining
                 let approvalURL = await onInviteReceived?(str)
                 if let url = approvalURL,
                    let responseData = url.absoluteString.data(using: .utf8) {
                     try? session.send(responseData, toPeers: [peerID], with: .reliable)
                 }
+                state = .success    // triggers auto-dismiss only after send completes
             }
         }
     }

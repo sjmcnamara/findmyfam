@@ -20,6 +20,7 @@ final class GroupListViewModel: ObservableObject {
     private let mls: MLSService
     private let displayName: () -> String
     let pendingInviteStore: PendingInviteStore
+    let pendingLeaveStore: PendingLeaveStore
     let healthTracker: GroupHealthTracker
     private var cancellables = Set<AnyCancellable>()
 
@@ -39,32 +40,32 @@ final class GroupListViewModel: ObservableObject {
         marmot: MarmotService,
         mls: MLSService,
         pendingInviteStore: PendingInviteStore,
+        pendingLeaveStore: PendingLeaveStore,
         displayName: @escaping () -> String = { "" }
     ) {
         self.marmot = marmot
         self.mls = mls
         self.pendingInviteStore = pendingInviteStore
+        self.pendingLeaveStore = pendingLeaveStore
         self.healthTracker = marmot.healthTracker
         self.displayName = displayName
 
         marmot.$groups
-            .receive(on: DispatchQueue.main)
+            .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
             .sink { [weak self] groups in
                 Task { await self?.refreshItems(from: groups) }
             }
             .store(in: &cancellables)
 
-        // Forward pending invite changes so the view re-renders.
-        pendingInviteStore.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
-        // Forward health tracker changes so unhealthy badges update.
-        healthTracker.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
+        // Merge child objectWillChange and debounce to avoid cascading renders.
+        Publishers.Merge3(
+            pendingInviteStore.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            pendingLeaveStore.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            healthTracker.objectWillChange.map { _ in () }.eraseToAnyPublisher()
+        )
+        .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
+        .sink { [weak self] _ in self?.objectWillChange.send() }
+        .store(in: &cancellables)
     }
 
     // MARK: - Refresh
@@ -86,6 +87,11 @@ final class GroupListViewModel: ObservableObject {
             ))
         }
         self.groups = items
+
+        // Clean up pending leaves for groups that no longer exist
+        // (admin processed the removal).
+        let activeIds = Set(items.map(\.id))
+        pendingLeaveStore.removeResolved(activeGroupIds: activeIds)
     }
 
     // MARK: - Actions
@@ -101,6 +107,27 @@ final class GroupListViewModel: ObservableObject {
         }
 
         return groupId
+    }
+
+    /// Poll relays for gift-wrap events that may have been missed by the
+    /// real-time subscription. Called by JoinGroupView while waiting for Welcome.
+    func fetchMissedWelcomes() async {
+        await marmot.fetchMissedGiftWraps()
+    }
+
+    /// Send a leave request to the group and mark it as "Leaving…" locally.
+    func requestLeaveGroup(id: String) async {
+        do {
+            try await marmot.sendLeaveRequest(groupId: id)
+            pendingLeaveStore.add(id)
+        } catch {
+            FMFLogger.chat.error("Failed to request leave for group \(id): \(error)")
+        }
+    }
+
+    /// Force relay reconnection after MPC / NearbyShare activity.
+    func forceReconnectRelays() async {
+        await marmot.forceReconnectRelays()
     }
 
     func joinGroup(inviteCode: String) async throws {

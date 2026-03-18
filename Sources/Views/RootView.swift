@@ -37,6 +37,11 @@ struct RootView: View {
                 Text(msg)
             }
         }
+        .alert("Member Approved", isPresented: successBinding) {
+            Button("OK") { appViewModel.approvalSuccess = false }
+        } message: {
+            Text("They should appear in the group shortly.")
+        }
     }
 
     private var approvalBinding: Binding<Bool> {
@@ -50,6 +55,13 @@ struct RootView: View {
         Binding(
             get: { appViewModel.approvalError != nil },
             set: { if !$0 { appViewModel.approvalError = nil } }
+        )
+    }
+
+    private var successBinding: Binding<Bool> {
+        Binding(
+            get: { appViewModel.approvalSuccess },
+            set: { if !$0 { appViewModel.approvalSuccess = false } }
         )
     }
 

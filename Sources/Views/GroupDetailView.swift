@@ -1,20 +1,34 @@
 import SwiftUI
 
-/// Group management view — member list, invite generation, and admin actions.
+/// Group management view — member list, invite generation, rename, and leave.
 struct GroupDetailView: View {
     @ObservedObject var viewModel: GroupDetailViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var showInvite = false
+    @State private var editingName = ""
+    @State private var showLeaveConfirmation = false
 
     var body: some View {
         List {
-            // MARK: - Group info
+            // MARK: - Group info (editable for admins)
             Section("Group") {
-                HStack {
-                    Image(systemName: "person.3.fill")
-                        .foregroundStyle(.blue)
-                    Text(viewModel.groupName)
-                        .font(.headline)
+                if viewModel.isAdmin {
+                    HStack {
+                        Image(systemName: "person.3.fill")
+                            .foregroundStyle(.blue)
+                        TextField("Group Name", text: $editingName)
+                            .font(.headline)
+                            .onSubmit {
+                                Task { await viewModel.renameGroup(to: editingName) }
+                            }
+                    }
+                } else {
+                    HStack {
+                        Image(systemName: "person.3.fill")
+                            .foregroundStyle(.blue)
+                        Text(viewModel.groupName)
+                            .font(.headline)
+                    }
                 }
             }
 
@@ -28,51 +42,42 @@ struct GroupDetailView: View {
                 }
             }
 
-            // MARK: - Add member (admin only)
+            // MARK: - Invite
             if viewModel.isAdmin {
                 Section {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Add Member")
-                            .font(.subheadline.bold())
-                        Text("Paste the npub or hex pubkey of someone who has accepted your invite.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        HStack {
-                            TextField("npub1… or hex", text: $viewModel.addMemberNpub)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .font(.body.monospaced())
-
-                            Button {
-                                Task { await viewModel.addMember() }
-                            } label: {
-                                if viewModel.isAddingMember {
-                                    ProgressView()
-                                } else {
-                                    Text("Add")
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(
-                                viewModel.addMemberNpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                || viewModel.isAddingMember
-                            )
-                        }
+                    Button {
+                        viewModel.generateInvite()
+                        showInvite = true
+                    } label: {
+                        Label("Invite Member", systemImage: "person.badge.plus")
                     }
-                    .padding(.vertical, 4)
-                } footer: {
-                    Text("The member must publish a key package first (by accepting the invite code).")
                 }
             }
 
-            // MARK: - Invite
+            // MARK: - Leave group
             Section {
-                Button {
-                    viewModel.generateInvite()
-                    showInvite = true
-                } label: {
-                    Label("Generate Invite Code", systemImage: "person.badge.plus")
+                if viewModel.pendingLeaveStore.contains(viewModel.groupId) {
+                    HStack {
+                        Spacer()
+                        Label("Leave Requested", systemImage: "hourglass")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        showLeaveConfirmation = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            if viewModel.isLeaving {
+                                ProgressView()
+                            } else {
+                                Label("Leave Group", systemImage: "rectangle.portrait.and.arrow.right")
+                            }
+                            Spacer()
+                        }
+                    }
+                    .disabled(viewModel.isLeaving)
                 }
             }
 
@@ -88,6 +93,7 @@ struct GroupDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.load()
+            editingName = viewModel.groupName
         }
         .sheet(isPresented: $showInvite) {
             if let code = viewModel.inviteCode {
@@ -97,6 +103,20 @@ struct GroupDetailView: View {
         .deleteDisabled(!viewModel.isAdmin)
         .onChange(of: viewModel.didAddMember) { _, added in
             if added { dismiss() }
+        }
+        .onChange(of: viewModel.didRequestLeave) { _, left in
+            if left { dismiss() }
+        }
+        .onChange(of: viewModel.groupName) { _, newName in
+            editingName = newName
+        }
+        .alert("Leave Group?", isPresented: $showLeaveConfirmation) {
+            Button("Leave", role: .destructive) {
+                Task { await viewModel.requestLeave() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The admin will be notified to remove you. You'll stop receiving updates once confirmed.")
         }
     }
 
@@ -117,10 +137,17 @@ struct GroupDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                if member.isAdmin {
-                    Text("Admin")
-                        .font(.caption)
-                        .foregroundStyle(.blue)
+                HStack(spacing: 6) {
+                    if member.isAdmin {
+                        Text("Admin")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    }
+                    if viewModel.leaveRequestMembers.contains(member.pubkeyHex) {
+                        Text("Wants to leave")
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
 

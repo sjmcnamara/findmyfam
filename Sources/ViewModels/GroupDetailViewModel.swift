@@ -9,7 +9,7 @@ final class GroupDetailViewModel: ObservableObject {
 
     // MARK: - Published state
 
-    @Published private(set) var groupName: String = ""
+    @Published var groupName: String = ""
     @Published private(set) var members: [MemberItem] = []
     @Published private(set) var inviteCode: String?
     @Published private(set) var isLoading = false
@@ -17,6 +17,12 @@ final class GroupDetailViewModel: ObservableObject {
     @Published private(set) var didAddMember = false
     @Published private(set) var error: String?
     @Published var addMemberNpub: String = ""
+
+    // Leave / rename state
+    @Published var isLeaving = false
+    @Published var didRequestLeave = false
+    @Published var isRenaming = false
+    @Published private(set) var leaveRequestMembers: Set<String> = []  // pubkeys wanting to leave
 
     // MARK: - Item model
 
@@ -35,7 +41,8 @@ final class GroupDetailViewModel: ObservableObject {
     private let mls: MLSService
     private let nicknameStore: NicknameStore
     private let myPubkeyHex: String
-    private var cancellable: AnyCancellable?
+    let pendingLeaveStore: PendingLeaveStore
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: - Init
 
@@ -44,21 +51,30 @@ final class GroupDetailViewModel: ObservableObject {
         marmot: MarmotService,
         mls: MLSService,
         nicknameStore: NicknameStore,
-        myPubkeyHex: String
+        myPubkeyHex: String,
+        pendingLeaveStore: PendingLeaveStore
     ) {
         self.groupId = groupId
         self.marmot = marmot
         self.mls = mls
         self.nicknameStore = nicknameStore
         self.myPubkeyHex = myPubkeyHex
+        self.pendingLeaveStore = pendingLeaveStore
 
         // Re-resolve display names when nicknames change
-        cancellable = nicknameStore.$nicknames
+        nicknameStore.$nicknames
             .dropFirst()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.refreshDisplayNames()
             }
+            .store(in: &cancellables)
+
+        // Listen for leave requests targeting this group
+        marmot.onLeaveRequestReceived = { [weak self] groupId, pubkey in
+            guard let self, groupId == self.groupId else { return }
+            self.leaveRequestMembers.insert(pubkey)
+        }
     }
 
     // MARK: - Load
@@ -187,6 +203,42 @@ final class GroupDetailViewModel: ObservableObject {
     /// Whether the current user is an admin of this group.
     var isAdmin: Bool {
         members.first(where: \.isMe)?.isAdmin ?? false
+    }
+
+    // MARK: - Leave group
+
+    /// Send a leave request to the group admin. The member enters a "leaving"
+    /// state locally; the admin must process the actual removal for key rotation.
+    func requestLeave() async {
+        isLeaving = true
+        defer { isLeaving = false }
+        do {
+            try await marmot.sendLeaveRequest(groupId: groupId)
+            pendingLeaveStore.add(groupId)
+            didRequestLeave = true
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+            FMFLogger.chat.error("Failed to send leave request: \(error)")
+        }
+    }
+
+    // MARK: - Rename group
+
+    /// Rename the group (admin only). Updates MLS metadata and publishes.
+    func renameGroup(to newName: String) async {
+        let trimmed = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != groupName else { return }
+        isRenaming = true
+        defer { isRenaming = false }
+        do {
+            try await marmot.renameGroup(groupId, to: trimmed)
+            groupName = trimmed
+            error = nil
+        } catch {
+            self.error = error.localizedDescription
+            FMFLogger.chat.error("Failed to rename group: \(error)")
+        }
     }
 
     // MARK: - Nickname refresh

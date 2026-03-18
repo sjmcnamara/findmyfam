@@ -4,6 +4,8 @@ import SwiftUI
 struct GroupListView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @ObservedObject var viewModel: GroupListViewModel
+    @State private var groupToLeave: GroupListViewModel.GroupListItem?
+    @State private var showLeaveAlert = false
 
     var body: some View {
         NavigationStack {
@@ -62,12 +64,37 @@ struct GroupListView: View {
                 } label: {
                     GroupRowView(
                         group: group,
-                        isUnhealthy: viewModel.healthTracker.isUnhealthy(groupId: group.id)
+                        isUnhealthy: viewModel.healthTracker.isUnhealthy(groupId: group.id),
+                        isLeaving: viewModel.pendingLeaveStore.contains(group.id)
                     )
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    if !viewModel.pendingLeaveStore.contains(group.id) {
+                        Button(role: .destructive) {
+                            groupToLeave = group
+                            showLeaveAlert = true
+                        } label: {
+                            Label("Leave", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                    }
                 }
             }
         }
         .listStyle(.plain)
+        .alert("Leave Group?", isPresented: $showLeaveAlert) {
+            Button("Leave", role: .destructive) {
+                if let group = groupToLeave {
+                    Task { await viewModel.requestLeaveGroup(id: group.id) }
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                groupToLeave = nil
+            }
+        } message: {
+            if let group = groupToLeave {
+                Text("Leave \"\(group.name)\"? The admin will be notified to remove you.")
+            }
+        }
     }
 
     // MARK: - Pending invites
@@ -106,7 +133,8 @@ struct GroupListView: View {
                 marmot: marmot,
                 mls: appViewModel.mls,
                 nicknameStore: appViewModel.nicknameStore,
-                myPubkeyHex: myPubkey
+                myPubkeyHex: myPubkey,
+                pendingLeaveStore: appViewModel.pendingLeaveStore
             )
         } else {
             Text("Marmot service not ready")
@@ -164,6 +192,7 @@ private struct GroupChatContainer: View {
     let mls: MLSService
     let nicknameStore: NicknameStore
     let myPubkeyHex: String
+    let pendingLeaveStore: PendingLeaveStore
 
     @State private var showDetail = false
 
@@ -180,7 +209,8 @@ private struct GroupChatContainer: View {
             marmot: marmot,
             mls: mls,
             nicknameStore: nicknameStore,
-            myPubkeyHex: myPubkeyHex
+            myPubkeyHex: myPubkeyHex,
+            pendingLeaveStore: pendingLeaveStore
         )
 
         GroupChatView(

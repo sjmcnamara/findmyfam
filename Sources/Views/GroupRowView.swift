@@ -4,12 +4,13 @@ import SwiftUI
 struct GroupRowView: View {
     let group: GroupListViewModel.GroupListItem
     var isUnhealthy: Bool = false
+    var isLeaving: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "person.3.fill")
                 .font(.title2)
-                .foregroundStyle(group.isActive ? .blue : .secondary)
+                .foregroundStyle(group.isActive && !isLeaving ? .blue : .secondary)
                 .frame(width: 36)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -32,7 +33,15 @@ struct GroupRowView: View {
 
             Spacer()
 
-            if isUnhealthy {
+            if isLeaving {
+                Text("Leaving…")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(.orange.opacity(0.1))
+                    .clipShape(Capsule())
+            } else if isUnhealthy {
                 Label("Out of sync", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.red)

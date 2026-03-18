@@ -36,6 +36,11 @@ final class AppViewModel: ObservableObject {
     /// Tracks invites where key package was published but Welcome not yet received.
     let pendingInviteStore: PendingInviteStore
 
+    // MARK: - Pending Leaves (v0.8)
+
+    /// Tracks groups where the user requested to leave but admin hasn't processed removal yet.
+    let pendingLeaveStore: PendingLeaveStore
+
     // MARK: - Pending Approval (v0.7)
 
     /// A member approval request received via `famstr://addmember/` deep link.
@@ -49,6 +54,9 @@ final class AppViewModel: ObservableObject {
 
     /// Non-nil when an approval attempt failed — surfaced as an error alert.
     @Published var approvalError: String?
+
+    /// Set briefly after a successful member approval — triggers a success alert.
+    @Published var approvalSuccess = false
 
     /// GroupListViewModel — owned here so it survives SwiftUI view identity
     /// changes. Created once after MarmotService is ready.
@@ -93,6 +101,7 @@ final class AppViewModel: ObservableObject {
         self.locationCache   = LocationCache()
         self.nicknameStore       = NicknameStore()
         self.pendingInviteStore  = PendingInviteStore()
+        self.pendingLeaveStore   = PendingLeaveStore()
 
         let cache = self.locationCache
         let settingsRef = self.settings
@@ -124,21 +133,16 @@ final class AppViewModel: ObservableObject {
 
     /// Forward `objectWillChange` from nested ObservableObjects so views
     /// that observe AppViewModel (via @EnvironmentObject) re-render when
-    /// child properties change.
+    /// child properties change. Merged and debounced to avoid cascading
+    /// render cycles when multiple children publish in quick succession.
     private func forwardChildChanges() {
-        settings.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
-        locationService.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
-        relay.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
+        Publishers.Merge3(
+            settings.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            locationService.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            relay.objectWillChange.map { _ in () }.eraseToAnyPublisher()
+        )
+        .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
+        .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
     }
 
@@ -234,13 +238,50 @@ final class AppViewModel: ObservableObject {
     /// Add the member from a pending approval request to their group.
     func approvePendingMember() async {
         guard let approval = pendingApproval else { return }
+        guard let marmot else {
+            approvalError = "App not fully initialised — please wait and try again."
+            pendingApproval = nil
+            return
+        }
         pendingApproval = nil
         do {
-            try await marmot?.addMember(publicKeyHex: approval.pubkeyHex, toGroup: approval.groupId)
+            try await marmot.addMember(publicKeyHex: approval.pubkeyHex, toGroup: approval.groupId)
             FMFLogger.marmot.info("Approved member \(approval.pubkeyHex.prefix(8)) into group \(approval.groupId)")
+            approvalSuccess = true
         } catch {
             FMFLogger.marmot.error("Failed to approve member: \(error)")
             approvalError = errorMessage(for: error)
+        }
+    }
+
+    /// Auto-approve a member received via NearbyShare — no confirmation alert
+    /// needed because the admin physically initiated the invite (proximity = consent).
+    /// Uses more retries than the normal path because the invitee's key package
+    /// publish is deferred until after MPC tears down.
+    func approveViaNearbyShare(_ url: URL) {
+        guard url.scheme == "famstr", url.host == "addmember" else { return }
+        let parts = url.pathComponents.dropFirst()
+        guard parts.count >= 2 else {
+            FMFLogger.marmot.warning("approveViaNearbyShare: malformed URL \(url)")
+            return
+        }
+        let pubkeyHex = String(parts[parts.startIndex])
+        let groupId = String(parts[parts.index(parts.startIndex, offsetBy: 1)])
+                        .removingPercentEncoding ?? String(parts[parts.index(parts.startIndex, offsetBy: 1)])
+
+        Task {
+            guard let marmot else {
+                approvalError = "App not fully initialised — please wait and try again."
+                return
+            }
+            do {
+                try await marmot.addMember(publicKeyHex: pubkeyHex, toGroup: groupId, maxRetries: 10)
+                FMFLogger.marmot.info("NearbyShare auto-approved \(pubkeyHex.prefix(8)) into group \(groupId)")
+                approvalSuccess = true
+            } catch {
+                FMFLogger.marmot.error("NearbyShare auto-approve failed: \(error)")
+                approvalError = errorMessage(for: error)
+            }
         }
     }
 
@@ -300,6 +341,7 @@ final class AppViewModel: ObservableObject {
         marmotService.locationCache = locationCache
         marmotService.nicknameStore = nicknameStore
         marmotService.pendingInviteStore = pendingInviteStore
+        marmotService.pendingLeaveStore = pendingLeaveStore
         marmotService.settings = settings
 
         // Load persisted groups from MDK database BEFORE publishing
@@ -309,9 +351,10 @@ final class AppViewModel: ObservableObject {
         await marmotService.refreshGroups()
         FMFLogger.marmot.info("Loaded \(marmotService.groups.count) group(s) from MDK database")
 
-        // Clean up any pending invites that were resolved while the app was closed.
+        // Clean up any pending invites/leaves that were resolved while the app was closed.
         let activeIds = Set(marmotService.groups.map(\.mlsGroupId))
         pendingInviteStore.removeResolved(activeGroupIds: activeIds)
+        pendingLeaveStore.removeResolved(activeGroupIds: activeIds)
 
         // Clear any dangling pending commits from a previous crash.
         // If the app was killed mid-commit, the MLS state may have a
@@ -331,6 +374,7 @@ final class AppViewModel: ObservableObject {
             marmot: marmotService,
             mls: mls,
             pendingInviteStore: pendingInviteStore,
+            pendingLeaveStore: pendingLeaveStore,
             displayName: { [weak self] in self?.settings.displayName ?? "" }
         )
 

@@ -72,10 +72,12 @@ struct InviteShareView: View {
                     role: .advertiser(inviteCode: inviteURL?.absoluteString ?? inviteCode),
                     onApprovalReceived: { urlString in
                         // Invitee's npub arrived through the MPC session —
-                        // route it through the normal deep-link handler so the
-                        // "Approve Member?" alert fires automatically.
+                        // auto-approve since admin physically initiated the
+                        // NearbyShare invite (proximity = consent). Uses extra
+                        // retries because the invitee's key package publish is
+                        // deferred until after MPC tears down.
                         if let url = URL(string: urlString) {
-                            appViewModel.handleIncomingURL(url)
+                            appViewModel.approveViaNearbyShare(url)
                         }
                     }
                 )

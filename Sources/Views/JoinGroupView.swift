@@ -14,6 +14,7 @@ struct JoinGroupView: View {
     @State private var didJoin = false
     @State private var showScanner = false
     @State private var showNearbyShare = false
+    @State private var joinedViaNearby = false
 
     var body: some View {
         NavigationStack {
@@ -52,7 +53,7 @@ struct JoinGroupView: View {
                         }
                     }
 
-                    if let approvalURL = approvalURL() {
+                    if !joinedViaNearby, let approvalURL = approvalURL() {
                         Section {
                             ShareLink(item: approvalURL) {
                                 Label("Share my key with the admin", systemImage: "person.badge.key.fill")
@@ -105,12 +106,49 @@ struct JoinGroupView: View {
                     inviteCode = code
                 }
             }
-            .sheet(isPresented: $showNearbyShare) {
+            // Auto-dismiss once the MLS Welcome arrives and the group appears in the list.
+            .onChange(of: viewModel.groups) { _, groups in
+                guard didJoin else { return }
+                let rawCode = extractCode(from: inviteCode)
+                guard let groupId = try? InviteCode.decode(from: rawCode).groupId else { return }
+                if groups.contains(where: { $0.id == groupId }) {
+                    dismiss()
+                }
+            }
+            // Poll for missed gift-wrap events while waiting for the Welcome.
+            // Compensates for WebSocket subscription gaps during MPC sessions.
+            .task(id: didJoin) {
+                guard didJoin else { return }
+                let rawCode = extractCode(from: inviteCode)
+                guard let expectedGroupId = try? InviteCode.decode(from: rawCode).groupId else { return }
+
+                // Poll every 3 seconds for up to 90 seconds.
+                for _ in 0..<30 {
+                    try? await Task.sleep(for: .seconds(3))
+                    guard !Task.isCancelled else { return }
+                    await viewModel.fetchMissedWelcomes()
+                    // Check if the Welcome was processed and the group appeared.
+                    if viewModel.groups.contains(where: { $0.id == expectedGroupId }) {
+                        return  // .onChange handler will auto-dismiss
+                    }
+                }
+            }
+            .sheet(isPresented: $showNearbyShare, onDismiss: {
+                if joinedViaNearby && !didJoin {
+                    Task {
+                        // Force relay reconnect — MPC (Bluetooth/WiFi)
+                        // can leave the WebSocket in a degraded state
+                        // where it silently drops incoming events.
+                        await viewModel.forceReconnectRelays()
+                        await joinGroup()
+                    }
+                }
+            }) {
                 NearbyShareView(role: .browser, onInviteReceived: { received in
                     inviteCode = extractCode(from: received)
-                    await joinGroup()
-                    // Return the approval URL so the coordinator sends it back
-                    // to the admin through the same MPC session automatically.
+                    joinedViaNearby = true
+                    // Return the approval URL immediately — only needs
+                    // pubkey + groupId, no network call required.
                     return approvalURL()
                 })
             }

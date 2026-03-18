@@ -115,7 +115,22 @@
       "Bash(xcodebuild -scheme FindMyFam -destination 'platform=iOS Simulator,name=iPhone 16' build)",
       "Bash(ls /Users/stephen.mcnamara/Development/findmyfam/*.md)",
       "Bash(encryption…\" → \"Loading groups…\":*)",
-      "Bash(xcodebuild -scheme FindMyFam -destination 'generic/platform=iOS' -configuration Debug build)"
+      "Bash(xcodebuild -scheme FindMyFam -destination 'generic/platform=iOS' -configuration Debug build)",
+      "Bash(grep -n \"onApprovalReceived\\\\|addMember\" Sources/Views/*.swift)",
+      "Bash(find ~/.swiftpm/repositories -name *mdk* -type d)",
+      "Bash(find /Users/stephen.mcnamara/Development/findmyfam -type d -name \"SourcePackages\\\\|.build\\\\|DerivedData\")",
+      "Bash(xcodebuild -scheme FindMyFam -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' build)",
+      "Bash(find /Users/stephen.mcnamara/Development/findmyfam -path */MDKBindings* -name *.swift)",
+      "Bash(find /Users/stephen.mcnamara/Development/findmyfam -name *.swift -path *MDK* -o -name *.swift -path *mdk*)",
+      "Bash(find /Users/stephen.mcnamara/Development/findmyfam -name GroupDataUpdate*)",
+      "Bash(find /Users/stephen.mcnamara/Development/findmyfam -path */MDKBindings*)",
+      "Bash(find /Users/stephen.mcnamara/Development/findmyfam -name *.xcframework -o -name Package.swift -o -name Package.resolved)",
+      "Bash(find ~/Library/Developer/Xcode/DerivedData -name GroupDataUpdate*)",
+      "Bash(find ~/Library/Developer/Xcode/DerivedData -path *mdk* -name *.swift)",
+      "Bash(xcodebuild -scheme findmyfam -destination 'platform=iOS Simulator,name=iPhone 16' -quiet build)",
+      "Bash(xcodebuild -list)",
+      "Bash(xcodebuild -target FindMyFam -destination 'platform=iOS Simulator,name=iPhone 16' -quiet build)",
+      "Bash(xcodebuild -target FindMyFam -destination 'generic/platform=iOS' -quiet build)"
     ]
   }
 }
