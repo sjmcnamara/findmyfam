@@ -184,6 +184,14 @@ actor MLSService {
         return result
     }
 
+    /// Update group metadata (name, description, relays, admins).
+    /// Caller must `mergePendingCommit` and publish the result.
+    func updateGroupData(groupId: String, update: GroupDataUpdate) throws -> UpdateGroupResult {
+        let result = try instance().updateGroupData(mlsGroupId: groupId, update: update)
+        FMFLogger.mls.info("Updated group data for \(groupId)")
+        return result
+    }
+
     /// Perform a self-update (MLS key rotation) for the given group.
     /// Produces a new epoch. Caller must `mergePendingCommit` and publish the result.
     func selfUpdate(groupId: String) throws -> UpdateGroupResult {

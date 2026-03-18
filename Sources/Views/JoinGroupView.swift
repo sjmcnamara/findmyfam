@@ -1,13 +1,20 @@
 import SwiftUI
 
 /// Sheet for joining a group via invite code.
+/// Accepts a code via: paste, QR scan, nearby share, or deep link pre-fill.
 struct JoinGroupView: View {
     @ObservedObject var viewModel: GroupListViewModel
+    var initialCode: String?
+    /// The current user's pubkey hex — used to build the approval-request URL after joining.
+    var myPubkeyHex: String?
     @Environment(\.dismiss) private var dismiss
     @State private var inviteCode = ""
     @State private var isJoining = false
     @State private var error: String?
     @State private var didJoin = false
+    @State private var showScanner = false
+    @State private var showNearbyShare = false
+    @State private var joinedViaNearby = false
 
     var body: some View {
         NavigationStack {
@@ -18,16 +25,42 @@ struct JoinGroupView: View {
                         .autocorrectionDisabled()
                         .font(.body.monospaced())
                 } footer: {
-                    Text("Paste the invite code shared by a group member.")
+                    Text("Paste a code, scan a QR code, or tap an NFC tag.")
+                }
+
+                // Quick-action buttons
+                Section {
+                    Button {
+                        showNearbyShare = true
+                    } label: {
+                        Label("Join Nearby", systemImage: "wave.3.left.circle.fill")
+                    }
+
+                    Button {
+                        showScanner = true
+                    } label: {
+                        Label("Scan QR Code", systemImage: "qrcode.viewfinder")
+                    }
                 }
 
                 if didJoin {
                     Section {
-                        HStack {
+                        HStack(alignment: .top, spacing: 10) {
                             Image(systemName: "checkmark.circle.fill")
                                 .foregroundStyle(.green)
-                            Text("Key package published — waiting for the group admin to add you.")
+                            Text("Key package published. Now share your key with the group admin so they can approve you.")
                                 .font(.caption)
+                        }
+                    }
+
+                    if !joinedViaNearby, let approvalURL = approvalURL() {
+                        Section {
+                            ShareLink(item: approvalURL) {
+                                Label("Share my key with the admin", systemImage: "person.badge.key.fill")
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        } footer: {
+                            Text("Send this to the group admin via AirDrop, Messages, etc. They tap it once to approve you — no copy-paste needed.")
                         }
                     }
                 }
@@ -57,15 +90,99 @@ struct JoinGroupView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showScanner) {
+                NavigationStack {
+                    QRScannerView { scanned in
+                        inviteCode = extractCode(from: scanned)
+                        showScanner = false
+                        Task { await joinGroup() }
+                    }
+                    .navigationTitle("Scan QR Code")
+                    .navigationBarTitleDisplayMode(.inline)
+                }
+            }
+            .onAppear {
+                if let code = initialCode, !code.isEmpty {
+                    inviteCode = code
+                }
+            }
+            // Auto-dismiss once the MLS Welcome arrives and the group appears in the list.
+            .onChange(of: viewModel.groups) { _, groups in
+                guard didJoin else { return }
+                let rawCode = extractCode(from: inviteCode)
+                guard let groupId = try? InviteCode.decode(from: rawCode).groupId else { return }
+                if groups.contains(where: { $0.id == groupId }) {
+                    dismiss()
+                }
+            }
+            // Poll for missed gift-wrap events while waiting for the Welcome.
+            // Compensates for WebSocket subscription gaps during MPC sessions.
+            .task(id: didJoin) {
+                guard didJoin else { return }
+                let rawCode = extractCode(from: inviteCode)
+                guard let expectedGroupId = try? InviteCode.decode(from: rawCode).groupId else { return }
+
+                // Poll every 3 seconds for up to 90 seconds.
+                for _ in 0..<30 {
+                    try? await Task.sleep(for: .seconds(3))
+                    guard !Task.isCancelled else { return }
+                    await viewModel.fetchMissedWelcomes()
+                    // Check if the Welcome was processed and the group appeared.
+                    if viewModel.groups.contains(where: { $0.id == expectedGroupId }) {
+                        return  // .onChange handler will auto-dismiss
+                    }
+                }
+            }
+            .sheet(isPresented: $showNearbyShare, onDismiss: {
+                if joinedViaNearby && !didJoin {
+                    Task {
+                        // Force relay reconnect — MPC (Bluetooth/WiFi)
+                        // can leave the WebSocket in a degraded state
+                        // where it silently drops incoming events.
+                        await viewModel.forceReconnectRelays()
+                        await joinGroup()
+                    }
+                }
+            }) {
+                NearbyShareView(role: .browser, onInviteReceived: { received in
+                    inviteCode = extractCode(from: received)
+                    joinedViaNearby = true
+                    // Return the approval URL immediately — only needs
+                    // pubkey + groupId, no network call required.
+                    return approvalURL()
+                })
+            }
         }
     }
 
+    /// Build the `famstr://addmember/` URL to share with the group admin for one-tap approval.
+    private func approvalURL() -> URL? {
+        guard let pubkey = myPubkeyHex else { return nil }
+        // Decode the group ID from the accepted invite code
+        let rawCode = extractCode(from: inviteCode)
+        guard let groupId = try? InviteCode.decode(from: rawCode).groupId else { return nil }
+        return InviteCode.approvalURL(pubkeyHex: pubkey, groupId: groupId)
+    }
+
+    /// Extract the raw base64 invite code from either a `famstr://` URL or a raw string.
+    private func extractCode(from scanned: String) -> String {
+        guard let url = URL(string: scanned),
+              url.scheme == "famstr",
+              url.host == "invite",
+              let code = url.pathComponents.dropFirst().first else {
+            return scanned
+        }
+        return code
+    }
+
     private func joinGroup() async {
+        let code = inviteCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !code.isEmpty else { return }
         isJoining = true
         defer { isJoining = false }
 
         do {
-            try await viewModel.joinGroup(inviteCode: inviteCode.trimmingCharacters(in: .whitespacesAndNewlines))
+            try await viewModel.joinGroup(inviteCode: code)
             didJoin = true
             error = nil
         } catch {

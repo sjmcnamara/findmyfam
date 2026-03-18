@@ -93,6 +93,7 @@ enum MarmotKind {
     static let giftWrap:  UInt16 = 1059
 
     // Inner application message kinds (inside kind-445 payloads)
-    static let chat:     UInt16 = 9
-    static let location: UInt16 = 1
+    static let chat:         UInt16 = 9
+    static let location:     UInt16 = 1
+    static let leaveRequest: UInt16 = 2
 }

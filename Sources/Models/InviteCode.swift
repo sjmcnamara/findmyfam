@@ -23,12 +23,39 @@ struct InviteCode: Codable, Equatable {
         return data.base64EncodedString()
     }
 
+    /// Wrap the invite in a `famstr://invite/<code>` deep-link URL.
+    func asURL() -> URL {
+        URL(string: "famstr://invite/\(encode())")!
+    }
+
     /// Decode an invite from a base64-encoded string.
     static func decode(from encoded: String) throws -> InviteCode {
         guard let data = Data(base64Encoded: encoded) else {
             throw InviteError.invalidBase64
         }
         return try JSONDecoder().decode(InviteCode.self, from: data)
+    }
+
+    /// Extract an invite from a `famstr://invite/<code>` URL.
+    /// Also accepts a raw base64 string for backwards compatibility.
+    static func from(url: URL) throws -> InviteCode {
+        if url.scheme == "famstr", url.host == "invite",
+           let code = url.pathComponents.dropFirst().first {
+            return try decode(from: code)
+        }
+        return try decode(from: url.absoluteString)
+    }
+
+    // MARK: - Approval URL
+
+    /// Build a `famstr://addmember/<pubkeyHex>/<groupId>` URL that the
+    /// invitee shares back with the inviter to request group admission.
+    static func approvalURL(pubkeyHex: String, groupId: String) -> URL? {
+        // groupId may contain characters that are invalid in a URL path component
+        guard let encodedGroup = groupId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            return nil
+        }
+        return URL(string: "famstr://addmember/\(pubkeyHex)/\(encodedGroup)")
     }
 
     // MARK: - Errors

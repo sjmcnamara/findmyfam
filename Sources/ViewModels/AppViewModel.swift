@@ -36,12 +36,54 @@ final class AppViewModel: ObservableObject {
     /// Tracks invites where key package was published but Welcome not yet received.
     let pendingInviteStore: PendingInviteStore
 
+    // MARK: - Pending Leaves (v0.8)
+
+    /// Tracks groups where the user requested to leave but admin hasn't processed removal yet.
+    let pendingLeaveStore: PendingLeaveStore
+
+    // MARK: - Pending Approval (v0.7)
+
+    /// A member approval request received via `famstr://addmember/` deep link.
+    struct PendingApprovalRequest {
+        let pubkeyHex: String
+        let groupId: String
+    }
+
+    /// Non-nil when the inviter's app has received an add-member deep link.
+    @Published var pendingApproval: PendingApprovalRequest?
+
+    /// Non-nil when an approval attempt failed — surfaced as an error alert.
+    @Published var approvalError: String?
+
+    /// Set briefly after a successful member approval — triggers a success alert.
+    @Published var approvalSuccess = false
+
     /// GroupListViewModel — owned here so it survives SwiftUI view identity
     /// changes. Created once after MarmotService is ready.
     @Published private(set) var groupListViewModel: GroupListViewModel?
 
     /// Current user's public key hex — convenience for ViewModels.
     var myPubkeyHex: String? { identity.identity?.publicKeyHex }
+
+    // MARK: - Startup / Splash (v0.7.1)
+
+    enum StartupPhase: Equatable {
+        case connecting
+        case initialisingEncryption
+        case loadingGroups
+        case ready
+
+        var message: String {
+            switch self {
+            case .connecting:              return "Connecting to relays…"
+            case .initialisingEncryption:  return "Setting up encryption…"
+            case .loadingGroups:           return "Loading groups…"
+            case .ready:                   return ""
+            }
+        }
+    }
+
+    @Published private(set) var startupPhase: StartupPhase = .connecting
 
     /// MLS initialisation error surfaced to the UI (non-fatal — app works without it).
     @Published private(set) var mlsError: String?
@@ -59,6 +101,7 @@ final class AppViewModel: ObservableObject {
         self.locationCache   = LocationCache()
         self.nicknameStore       = NicknameStore()
         self.pendingInviteStore  = PendingInviteStore()
+        self.pendingLeaveStore   = PendingLeaveStore()
 
         let cache = self.locationCache
         let settingsRef = self.settings
@@ -90,21 +133,16 @@ final class AppViewModel: ObservableObject {
 
     /// Forward `objectWillChange` from nested ObservableObjects so views
     /// that observe AppViewModel (via @EnvironmentObject) re-render when
-    /// child properties change.
+    /// child properties change. Merged and debounced to avoid cascading
+    /// render cycles when multiple children publish in quick succession.
     private func forwardChildChanges() {
-        settings.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
-        locationService.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
-            .store(in: &cancellables)
-
-        relay.objectWillChange
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
+        Publishers.Merge3(
+            settings.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            locationService.objectWillChange.map { _ in () }.eraseToAnyPublisher(),
+            relay.objectWillChange.map { _ in () }.eraseToAnyPublisher()
+        )
+        .debounce(for: .milliseconds(50), scheduler: DispatchQueue.main)
+        .sink { [weak self] _ in self?.objectWillChange.send() }
             .store(in: &cancellables)
     }
 
@@ -167,22 +205,123 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Deep Link Handling (v0.7)
+
+    /// Route incoming `famstr://` URLs to the appropriate flow.
+    func handleIncomingURL(_ url: URL) {
+        guard url.scheme == "famstr" else { return }
+        switch url.host {
+        case "invite":
+            guard let code = try? InviteCode.from(url: url).encode() else {
+                FMFLogger.marmot.warning("handleIncomingURL: failed to decode invite from \(url)")
+                return
+            }
+            groupListViewModel?.pendingJoinCode = code
+            groupListViewModel?.showJoinGroup = true
+
+        case "addmember":
+            let parts = url.pathComponents.dropFirst()
+            guard parts.count >= 2 else {
+                FMFLogger.marmot.warning("handleIncomingURL: malformed addmember URL \(url)")
+                return
+            }
+            let pubkeyHex = String(parts[parts.startIndex])
+            let groupId   = String(parts[parts.index(parts.startIndex, offsetBy: 1)])
+                                .removingPercentEncoding ?? String(parts[parts.index(parts.startIndex, offsetBy: 1)])
+            pendingApproval = PendingApprovalRequest(pubkeyHex: pubkeyHex, groupId: groupId)
+
+        default:
+            FMFLogger.marmot.warning("handleIncomingURL: unknown host in \(url)")
+        }
+    }
+
+    /// Add the member from a pending approval request to their group.
+    func approvePendingMember() async {
+        guard let approval = pendingApproval else { return }
+        guard let marmot else {
+            approvalError = "App not fully initialised — please wait and try again."
+            pendingApproval = nil
+            return
+        }
+        pendingApproval = nil
+        do {
+            try await marmot.addMember(publicKeyHex: approval.pubkeyHex, toGroup: approval.groupId)
+            FMFLogger.marmot.info("Approved member \(approval.pubkeyHex.prefix(8)) into group \(approval.groupId)")
+            approvalSuccess = true
+        } catch {
+            FMFLogger.marmot.error("Failed to approve member: \(error)")
+            approvalError = errorMessage(for: error)
+        }
+    }
+
+    /// Auto-approve a member received via NearbyShare — no confirmation alert
+    /// needed because the admin physically initiated the invite (proximity = consent).
+    /// Uses more retries than the normal path because the invitee's key package
+    /// publish is deferred until after MPC tears down.
+    func approveViaNearbyShare(_ url: URL) {
+        guard url.scheme == "famstr", url.host == "addmember" else { return }
+        let parts = url.pathComponents.dropFirst()
+        guard parts.count >= 2 else {
+            FMFLogger.marmot.warning("approveViaNearbyShare: malformed URL \(url)")
+            return
+        }
+        let pubkeyHex = String(parts[parts.startIndex])
+        let groupId = String(parts[parts.index(parts.startIndex, offsetBy: 1)])
+                        .removingPercentEncoding ?? String(parts[parts.index(parts.startIndex, offsetBy: 1)])
+
+        Task {
+            guard let marmot else {
+                approvalError = "App not fully initialised — please wait and try again."
+                return
+            }
+            do {
+                try await marmot.addMember(publicKeyHex: pubkeyHex, toGroup: groupId, maxRetries: 10)
+                FMFLogger.marmot.info("NearbyShare auto-approved \(pubkeyHex.prefix(8)) into group \(groupId)")
+                approvalSuccess = true
+            } catch {
+                FMFLogger.marmot.error("NearbyShare auto-approve failed: \(error)")
+                approvalError = errorMessage(for: error)
+            }
+        }
+    }
+
+    private func errorMessage(for error: Error) -> String {
+        let desc = error.localizedDescription
+        // Translate common MarmotError cases into plain English.
+        if desc.contains("noKeyPackageFound") || desc.contains("key package") {
+            return "Could not find this person's key package on the relay. Ask them to re-open the app and share the invite again."
+        }
+        return desc
+    }
+
     /// Called once when the app becomes active.
     func onAppear() async {
         guard !didStart else { return }
         didStart = true
 
+        // Yield to the main run loop once so SwiftUI can commit the first
+        // SplashView frame before we start heavy async work.  Without this,
+        // on cold launch the .task fires before the first frame is drawn and
+        // the splash never reaches the screen.
+        await Task.yield()
+
+        // Record the time so we can enforce a minimum splash display duration.
+        let splashStart = ContinuousClock.now
+
         guard let keys = identity.keys else {
             FMFLogger.relay.error("No identity available — cannot connect to relays")
             didStart = false
+            startupPhase = .ready   // dismiss splash so onboarding/empty state is visible
             return
         }
 
         // Connect to Nostr relays
+        startupPhase = .connecting
         let enabled = settings.relays.filter(\.isEnabled)
         await relay.connect(keys: keys, relays: enabled)
 
         // Initialise MLS (keyring-backed, non-fatal if it fails)
+        startupPhase = .initialisingEncryption
         do {
             try await mls.initialise()
         } catch {
@@ -202,17 +341,20 @@ final class AppViewModel: ObservableObject {
         marmotService.locationCache = locationCache
         marmotService.nicknameStore = nicknameStore
         marmotService.pendingInviteStore = pendingInviteStore
+        marmotService.pendingLeaveStore = pendingLeaveStore
         marmotService.settings = settings
 
         // Load persisted groups from MDK database BEFORE publishing
         // marmotService to the UI — this avoids a flash of empty state
         // and ensures GroupListViewModel sees groups immediately.
+        startupPhase = .loadingGroups
         await marmotService.refreshGroups()
         FMFLogger.marmot.info("Loaded \(marmotService.groups.count) group(s) from MDK database")
 
-        // Clean up any pending invites that were resolved while the app was closed.
+        // Clean up any pending invites/leaves that were resolved while the app was closed.
         let activeIds = Set(marmotService.groups.map(\.mlsGroupId))
         pendingInviteStore.removeResolved(activeGroupIds: activeIds)
+        pendingLeaveStore.removeResolved(activeGroupIds: activeIds)
 
         // Clear any dangling pending commits from a previous crash.
         // If the app was killed mid-commit, the MLS state may have a
@@ -232,11 +374,22 @@ final class AppViewModel: ObservableObject {
             marmot: marmotService,
             mls: mls,
             pendingInviteStore: pendingInviteStore,
+            pendingLeaveStore: pendingLeaveStore,
             displayName: { [weak self] in self?.settings.displayName ?? "" }
         )
 
         // Now publish to UI — GroupListView will receive a fully loaded marmot.
         self.marmot = marmotService
+
+        // Enforce a minimum splash display time so the animation has time to
+        // play even when startup is very fast (warm relay, small group list).
+        let minimumSplash: Duration = .seconds(1.5)
+        let elapsed = ContinuousClock.now - splashStart
+        if elapsed < minimumSplash {
+            try? await Task.sleep(for: minimumSplash - elapsed)
+        }
+
+        startupPhase = .ready
 
         // Auto-broadcast display name when we join a group via welcome
         marmotService.$lastJoinedGroupId
@@ -262,6 +415,11 @@ final class AppViewModel: ObservableObject {
         // Broadcast display name to all groups so other members see it
         await broadcastNicknameToAllGroups()
 
+        // Re-publish key package if there are pending invites awaiting admin
+        // approval.  MLS key packages expire and are consumed on first use, so
+        // a fresh one must be available whenever the admin taps "Approve".
+        await refreshKeyPackageIfNeeded(marmot: marmotService)
+
         // Start Marmot subscriptions LAST — handleNotifications() runs an
         // infinite event loop that never returns, so everything above must
         // complete before this call.
@@ -270,6 +428,30 @@ final class AppViewModel: ObservableObject {
             await marmotService.startSubscriptions()
         } else {
             FMFLogger.marmot.warning("MarmotService created but subscriptions skipped — MLS not initialised")
+        }
+    }
+
+    // MARK: - Key Package Refresh
+
+    /// Re-publish a fresh MLS key package if there are pending group invites
+    /// waiting for admin approval.  Key packages expire and are consumed on use,
+    /// so without this the admin gets "noKeyPackageFound" days after the invite
+    /// was first sent.
+    private func refreshKeyPackageIfNeeded(marmot: MarmotService) async {
+        let pending = pendingInviteStore.pendingInvites
+        guard !pending.isEmpty else { return }
+
+        // Publish to all currently-enabled relays — that's where the admin's
+        // fetchKeyPackage call will look.
+        let relays = settings.relays.filter(\.isEnabled).map(\.url)
+        guard !relays.isEmpty else { return }
+
+        do {
+            try await marmot.publishKeyPackage(relays: relays)
+            FMFLogger.marmot.info("Refreshed key package for \(pending.count) pending invite(s) on \(relays.count) relay(s)")
+        } catch {
+            // Non-fatal — admin will get an error and can ask the invitee to re-open
+            FMFLogger.marmot.warning("Key package refresh failed: \(error)")
         }
     }
 
