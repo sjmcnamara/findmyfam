@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.7.2] — 2026-03-22
+
+### Fixed
+- **Delayed welcome handling** — gift-wrap events that fail with "No matching key package" are now queued for retry, and retries are run after key package refresh
+- **Pending welcome retry** — `fetchMissedGiftWraps()` now re-checks pending failing gift-wrap IDs in addition to new relay events
+
+### Changed
+- **Key package refresh now triggers welcome fetch** — `AppViewModel` calls `marmot.fetchMissedGiftWraps()` after refreshing key packages for pending invitations
+
+---
+
 ## [0.7.1] — 2026-03-22
 
 ### Fixed

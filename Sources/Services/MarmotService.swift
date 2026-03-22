@@ -374,6 +374,11 @@ final class MarmotService: ObservableObject {
                 FMFLogger.marmot.debug("Ignoring event kind \(kind)")
             }
 
+            // If this gift-wrap was previously failed, clear it on success.
+            if kind == MarmotKind.giftWrap {
+                settings?.pendingGiftWrapEventIds.remove(eventId)
+            }
+
             // Mark as processed so fetchMissedGiftWraps polling skips it.
             settings?.processedEventIds.insert(eventId)
 
@@ -391,6 +396,12 @@ final class MarmotService: ObservableObject {
             // Mark non-gift-wrap events as processed so we don't retry them.
             // Gift-wraps (Welcomes) should be retryable — a transient MLS
             // error shouldn't permanently prevent joining a group.
+            if kind == MarmotKind.giftWrap,
+               error.localizedDescription.contains("No matching key package") {
+                settings?.pendingGiftWrapEventIds.insert(eventId)
+                FMFLogger.marmot.info("Queued gift-wrap \(eventId) for retry after key package refresh")
+            }
+
             if kind != MarmotKind.giftWrap {
                 settings?.processedEventIds.insert(eventId)
             }
@@ -398,6 +409,12 @@ final class MarmotService: ObservableObject {
         } catch {
             // MDK errors like "group not found" are expected for events from
             // groups we don't belong to (kind-445 filter is relay-wide).
+            if kind == MarmotKind.giftWrap,
+               String(describing: error).contains("No matching key package") {
+                settings?.pendingGiftWrapEventIds.insert(eventId)
+                FMFLogger.marmot.info("Queued gift-wrap \(eventId) for retry after key package refresh")
+            }
+
             if kind != MarmotKind.giftWrap {
                 settings?.processedEventIds.insert(eventId)
             }
@@ -698,6 +715,15 @@ final class MarmotService: ObservableObject {
 
             for event in events {
                 await handleIncomingEvent(event)
+            }
+
+            if let pendingIds = settings?.pendingGiftWrapEventIds, !pendingIds.isEmpty {
+                let pendingFilter = Filter().ids(ids: Array(pendingIds))
+                let pendingEvents = try await relay.fetchEvents(filter: pendingFilter, timeout: 10)
+                FMFLogger.marmot.info("fetchMissedGiftWraps: retrying pending gift-wraps (\(pendingEvents.count))")
+                for event in pendingEvents {
+                    await handleIncomingEvent(event)
+                }
             }
         } catch {
             FMFLogger.marmot.error("fetchMissedGiftWraps failed: \(error)")

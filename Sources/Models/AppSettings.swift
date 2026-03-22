@@ -47,6 +47,12 @@ final class AppSettings: ObservableObject {
         didSet { savePendingLeaveRequests() }
     }
 
+    /// Gift-wrap (welcome) event IDs that have failed due to missing key package.
+    /// Re-tried after key package refresh.
+    @Published var pendingGiftWrapEventIds: Set<String> {
+        didSet { savePendingGiftWrapEventIds() }
+    }
+
     private enum Keys {
         static let relays = "fmf.relays"
         static let locationInterval = "fmf.locationInterval"
@@ -55,6 +61,7 @@ final class AppSettings: ObservableObject {
         static let lastEventTimestamp = "fmf.lastEventTimestamp"
         static let processedEventIds = "fmf.processedEventIds"
         static let pendingLeaveRequests = "fmf.pendingLeaveRequests"
+        static let pendingGiftWrapEventIds = "fmf.pendingGiftWrapEventIds"
     }
 
     private init() {
@@ -84,6 +91,13 @@ final class AppSettings: ObservableObject {
         } else {
             self.pendingLeaveRequests = [:]
         }
+
+        if let data = UserDefaults.standard.data(forKey: Keys.pendingGiftWrapEventIds),
+           let decoded = try? JSONDecoder().decode(Set<String>.self, from: data) {
+            self.pendingGiftWrapEventIds = decoded
+        } else {
+            self.pendingGiftWrapEventIds = []
+        }
     }
 
     private func save() {
@@ -101,6 +115,12 @@ final class AppSettings: ObservableObject {
     private func savePendingLeaveRequests() {
         if let data = try? JSONEncoder().encode(pendingLeaveRequests) {
             UserDefaults.standard.set(data, forKey: Keys.pendingLeaveRequests)
+        }
+    }
+
+    private func savePendingGiftWrapEventIds() {
+        if let data = try? JSONEncoder().encode(pendingGiftWrapEventIds) {
+            UserDefaults.standard.set(data, forKey: Keys.pendingGiftWrapEventIds)
         }
     }
 }

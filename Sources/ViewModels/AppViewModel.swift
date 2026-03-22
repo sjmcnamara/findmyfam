@@ -449,6 +449,9 @@ final class AppViewModel: ObservableObject {
         do {
             try await marmot.publishKeyPackage(relays: relays)
             FMFLogger.marmot.info("Refreshed key package for \(pending.count) pending invite(s) on \(relays.count) relay(s)")
+            Task { @MainActor in
+                await marmot.fetchMissedGiftWraps()
+            }
         } catch {
             // Non-fatal — admin will get an error and can ask the invitee to re-open
             FMFLogger.marmot.warning("Key package refresh failed: \(error)")

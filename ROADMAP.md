@@ -150,6 +150,12 @@ _Patch: Fixed member count stale state, improved event processing consistency_
 - **Cache safety**: member removal now only clears locations after successful group event publication; prevents corrupting cache on MLS errors
 - **Fine-grained location cleanup**: when removing a single member, only that member's location is cleared instead of all group members
 
+### v0.7.2 — Welcome retry & key package recovery ✅
+_Patch: Robust handling for gift-wrap welcomes that arrive before key package becomes available_
+
+- **Gift-wrap retry queue**: failed welcome events due to missing key package are queued, and retries occur during missed gift-wrap fetch
+- **Invitation recovery**: key package refresh now triggers missed gift-wrap fetch, improving user join reliability
+
 ---
 
 ### v0.8 — Security & Identity
