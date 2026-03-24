@@ -50,6 +50,10 @@ Group traffic is published as Marmot-compatible Nostr events:
 
 Early development. See [ROADMAP.md](ROADMAP.md) for phases.
 
+## Wiki
+
+Project operational docs live in [docs/wiki/Home.md](docs/wiki/Home.md).
+
 ## License
 
 MIT
