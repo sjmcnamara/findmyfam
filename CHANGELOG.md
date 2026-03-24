@@ -51,8 +51,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **QR code scanning** — "Scan QR Code" button in Join Group opens a live camera scanner; pointing at an inviter's QR code auto-populates and submits the join request
 - **NFC read** — "Tap NFC Tag" button (iPhone 7+) reads an NDEF invite URL from any NFC tag and auto-joins
 - **NFC write** — "Write to NFC Tag" button in the Invite sheet writes the `famstr://` invite URL to a blank NFC sticker; anyone can tap their phone to the sticker to join
+- **One-tap member approval** — after joining, invitee can share a `famstr://addmember/` URL with the admin; admin tap approves without pubkey copy-paste
 - `InviteCode.asURL()` — wraps the base64 code in a `famstr://invite/` deep-link URL
 - `InviteCode.from(url:)` — decodes an invite from a `famstr://` URL or raw base64 (backwards compatible)
+- `InviteCode.approvalURL(pubkeyHex:groupId:)` — builds a `famstr://addmember/` approval deep link for admin confirmation flow
 - `NFCReadCoordinator` — `@StateObject` helper for NDEF tag reading
 - `NFCWriteCoordinator` — `@StateObject` helper for writing NDEF URL records to NFC tags
 - `QRScannerView` — AVCaptureSession-based QR scanner with scan-frame guide

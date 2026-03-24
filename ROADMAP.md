@@ -156,21 +156,46 @@ _Patch: Robust handling for gift-wrap welcomes that arrive before key package be
 - **Gift-wrap retry queue**: failed welcome events due to missing key package are queued, and retries occur during missed gift-wrap fetch
 - **Invitation recovery**: key package refresh now triggers missed gift-wrap fetch, improving user join reliability
 
+### v0.7.3 — Build & Settings Stabilization ✅
+_Patch: Compile fixes and settings/about cleanup_
+
+- **Group details compile regression**: fixed member removal swipe action scoping in `GroupDetailView`
+- **Settings compile regression**: corrected `SettingsView` structure/scope and switched app-settings navigation to SwiftUI `openURL`
+- **Export compliance key**: restored `ITSAppUsesNonExemptEncryption=false` in `Info.plist`
+- **About projects links**: Settings now shows direct links to Nostr, OpenMLS, and Marmot Protocol project pages
+
 ---
 
 ### v0.8 — Security & Identity
-_Production-grade key security and identity management_
+_Foundational security + identity improvements split into patch releases_
+
+### v0.8.1 — App Lock
+_Device-level access protection_
 
 - **PIN / biometric lock**: FaceID / TouchID gate on app launch; optional per-session re-auth
-- **MLS database encryption**: replace `newMdkUnencrypted()` workaround — restore SQLCipher or equivalent when MDK supports it (group keys and messages currently in plaintext SQLite)
+
+### v0.8.2 — Identity Import / Export
+_Bring-your-own key and backup flow_
+
 - **Import / export nsec**: allow users to bring an existing Nostr identity or back up their key (NIP-49 encrypted export)
+
+### v0.8.3 — Key Lifecycle Hardening
+_Ongoing cryptographic hygiene for long-lived groups_
+
 - **Key rotation**: periodic forced epoch advance (UpdateProposal + Commit) on configurable schedule — default 7 days
 - **Forward secrecy audit**: verify old epoch keys are zeroed/deleted post-rotation
 - **Secure Enclave** for MLS signing keys (where hardware supports it); fallback to Keychain
 
 ---
 
-### v0.9 — Social & Connectivity
+### v0.9 — MLS Database Encryption
+_Major storage-hardening release for at-rest group key material_
+
+- **MLS database encryption**: replace `newMdkUnencrypted()` workaround — restore SQLCipher or equivalent when MDK supports it (group keys and messages currently in plaintext SQLite)
+
+---
+
+### v1.0 — Social & Connectivity
 _Richer group experience and relay management_
 
 - **Custom relay management**: add, remove, toggle relays from Settings; validate connectivity on add
@@ -182,7 +207,7 @@ _Richer group experience and relay management_
 
 ## Branch Strategy
 
-Each phase = `feature/v0.x-description` branch off `master`.
+Each phase = `feature/vX.Y-description` branch off `master`.
 PR per phase → review → merge to `master`.
 Bug-fix releases use `bugfix/v0.x.y` branches.
 
@@ -196,8 +221,11 @@ master
   └── bugfix/v0.5.1                     ✅ merged
   └── feature/v0.6-reliability          ✅ merged
   └── feature/v0.7-tap-to-share
-  └── feature/v0.8-security-identity
-  └── feature/v0.9-social-connectivity
+  └── feature/v0.8.1-app-lock
+  └── feature/v0.8.2-identity-import-export
+  └── feature/v0.8.3-key-lifecycle-hardening
+  └── feature/v0.9-mls-db-encryption
+  └── feature/v1.0-social-connectivity
 ```
 
 ---
