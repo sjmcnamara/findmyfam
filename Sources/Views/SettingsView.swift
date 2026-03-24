@@ -194,25 +194,29 @@ struct SettingsView: View {
         }
     }
 
-    private var aboutSection: some View {
-        Section("About") {
-            HStack {
-                Text("Version")
-                Spacer()
-                Text("0.7.2")
-                    .foregroundStyle(.secondary)
-            }
-            HStack {
-                Text("Protocol")
-                Spacer()
-                Text("Nostr + MLS (Marmot)")
-                    .foregroundStyle(.secondary)
-            }
+private var aboutSection: some View {
+    Section("About") {
+        HStack {
+            Text("Version")
+            Spacer()
+            Text("0.7.3")
+                .foregroundStyle(.secondary)
+        }
+        HStack {
+            Text("Protocol")
+            Spacer()
+            Text("Nostr + MLS + Marmot")
+                .foregroundStyle(.secondary)
+        }
+        HStack {
+            Text("Source")
+            Spacer()    
             Link(destination: URL(string: "https://github.com/sjmcnamara/findmyfam")!) {
-                Label("Source Code", systemImage: "chevron.left.forwardslash.chevron.right")
+                Label("GitHub", systemImage: "chevron.forward.circle")
             }
         }
     }
+}
 
     // MARK: - Helpers
 
