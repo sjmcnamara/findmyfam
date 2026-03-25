@@ -61,7 +61,7 @@ struct FamilyMapView: View {
         Button {
             centreOnSelf()
         } label: {
-            Image(systemName: "location.viewfinder")
+            Image(systemName: "location")
         }
         .disabled(viewModel.annotations.first(where: { $0.isMe }) == nil)
     }
