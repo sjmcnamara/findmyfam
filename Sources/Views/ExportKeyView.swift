@@ -9,6 +9,7 @@ struct ExportKeyView: View {
 
     @State private var password = ""
     @State private var confirmPassword = ""
+    @State private var showPassword = false
     @State private var ncryptsec: String?
     @State private var isExporting = false
     @State private var errorMessage: String?
@@ -16,6 +17,11 @@ struct ExportKeyView: View {
 
     private var passwordsValid: Bool {
         !password.isEmpty && password == confirmPassword
+    }
+
+    /// Non-empty passwords that don't match.
+    private var passwordsMismatch: Bool {
+        !password.isEmpty && !confirmPassword.isEmpty && password != confirmPassword
     }
 
     var body: some View {
@@ -42,14 +48,47 @@ struct ExportKeyView: View {
     private var passwordSection: some View {
         Group {
             Section {
-                SecureField("Password", text: $password)
+                HStack {
+                    Group {
+                        if showPassword {
+                            TextField("Password", text: $password)
+                        } else {
+                            SecureField("Password", text: $password)
+                        }
+                    }
                     .textContentType(.newPassword)
-                SecureField("Confirm Password", text: $confirmPassword)
+
+                    Button {
+                        showPassword.toggle()
+                    } label: {
+                        Image(systemName: showPassword ? "eye.slash" : "eye")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                HStack {
+                    Group {
+                        if showPassword {
+                            TextField("Confirm Password", text: $confirmPassword)
+                        } else {
+                            SecureField("Confirm Password", text: $confirmPassword)
+                        }
+                    }
                     .textContentType(.newPassword)
+                }
             } header: {
                 Text("Encryption Password")
             } footer: {
                 Text("Choose a strong password. You will need it to import this key later.")
+            }
+
+            if passwordsMismatch {
+                Section {
+                    Label("Passwords do not match.", systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.red)
+                        .font(.subheadline)
+                }
             }
 
             if let errorMessage {
