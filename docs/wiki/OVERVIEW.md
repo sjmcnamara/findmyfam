@@ -58,13 +58,29 @@ Exploring a new city or meeting colleagues at a conference.
 * Save on roaming SMS and "where are you now?" check-ins.
 * Keep your location away from third-party data brokers while abroad.
 
+
 ## Those “Just for Now” Moments 
 
-There’s a fine line between care and control, and most modern apps cross it without asking. FindMyFam is built for the moments where you want to be seen, but you don’t want to be watched. 
+We’ve quietly drifted into a world where every app wants to know who we are, where we are, and who we’re with—*all the time*. Location sharing, in particular, has changed from a tool of care into something closer to ambient surveillance, shaped by ad-tech incentives, data collection, and the slow, familiar slide of platform enshitification.
 
-It’s the digital equivalent of a quick "text me when you're home"—a temporary bridge of reassurance during a late-night walk or a solo journey through an unfamiliar city. 
+FindMyFam pushes back on that.
 
-It enables a respectful, opt-in visibility that respects your agency. You share your location because it’s useful *in this specific moment, with these specific people*, and you stop because the moment has passed. It’s the simplicity of saying, "Let’s keep track of each other for a bit," without the psychological weight of a permanent tether.
+There’s a fine line between care and control—and most modern apps cross it by default. They turn temporary reassurance into persistent tracking, wrap it in accounts and identifiers, and route it through systems designed to observe, retain, and monetise.
+
+FindMyFam is built for the moments where you want to be seen, but not watched.
+
+It’s the digital equivalent of a quick *“text me when you’re home”*—a temporary bridge of reassurance during a late-night walk, a taxi ride, or a solo journey through an unfamiliar city. No accounts. No profiles. No silent observers in the background.
+
+Because you shouldn’t need to sign up, log in, or hand over your data to feel safe.
+
+This is the philosophy of **protocols over platforms**:
+- No central authority deciding how your data is used  
+- No permanent social graph being built behind the scenes  
+- No quiet accumulation of history you didn’t agree to keep  
+
+Just a simple, direct exchange between people who trust each other.
+
+It enables a respectful, opt-in visibility that preserves your agency. You share your location because it’s useful *in this moment, with these people*. And you stop because the moment has passed.
 
 Not forever.  
 Not tied to identity.  
