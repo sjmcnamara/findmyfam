@@ -43,13 +43,23 @@ A spontaneous night: people split off, someone finds a better bar, and someone e
 * See roughly where the center of gravity is.
 * Regroup effortlessly without having to follow everyone on Instagram first.
 
-### 4. Ad-hoc events (Hen or stag parties, birthdays)
+### 4. A school trip (structured, but chaotic underneath)
+
+A class trip to a zoo or museum looks organised on paper. In reality, it’s a constant balancing act:
+* small groups splitting off  
+* teachers trying to keep track of everyone  
+* meeting points that get missed  
+* the low-level stress of “where are they now?”  
+
+FindMyFam can act as a lightweight coordination layer without turning the day into a surveillance exercise.
+
+### 5. Ad-hoc events (parties, birthdays)
 Temporary, high-energy gatherings where not everyone knows each other. FindMyFam works as a **pop-up coordination tool**:
 * Share a link or a code; everyone joins.
 * Everyone disappears afterward.
 * No one is left in a permanent contact list they didn’t ask for.
 
-### 5. Travel companions (practical, low-stress)
+### 6. Travel companions (practical, low-stress)
 Exploring a new city or meeting colleagues at a conference. 
 * Split up to see different sights and regroup later without friction.
 * Save on roaming SMS and "where are you now?" check-ins.
