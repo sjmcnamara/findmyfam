@@ -217,11 +217,10 @@ fun SettingsScreen(
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Relays section
+            // Relays section (read-only for now)
             SectionHeader("Relays")
 
-            val relays = settings.relays
-            relays.forEachIndexed { index, relay ->
+            for (relay in settings.relays) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -232,21 +231,14 @@ fun SettingsScreen(
                         Icons.Default.Cloud,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = if (relay.isEnabled) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
                         text = relay.url,
                         style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Switch(
-                        checked = relay.isEnabled,
-                        onCheckedChange = { enabled ->
-                            val updated = relays.toMutableList()
-                            updated[index] = relay.copy(isEnabled = enabled)
-                            settings.relays = updated
-                        }
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
