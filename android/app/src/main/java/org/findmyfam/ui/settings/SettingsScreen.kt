@@ -217,6 +217,33 @@ fun SettingsScreen(
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
+            // Relays section (read-only for now)
+            SectionHeader("Relays")
+
+            for (relay in settings.relays) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Cloud,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = relay.url,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
             // About section
             SectionHeader("About")
 
