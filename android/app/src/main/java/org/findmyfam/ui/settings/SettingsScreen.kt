@@ -231,8 +231,7 @@ fun SettingsScreen(
                         Icons.Default.Cloud,
                         contentDescription = null,
                         modifier = Modifier.size(20.dp),
-                        tint = if (relay.isEnabled) MaterialTheme.colorScheme.primary
-                               else MaterialTheme.colorScheme.onSurfaceVariant
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
