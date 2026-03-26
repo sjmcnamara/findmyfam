@@ -15,9 +15,6 @@ It is:
 
 This isn’t about building a better tracking app. It’s about **removing tracking as a default assumption.**
 
-Instead of asking “who has your data?”, the model becomes:  
-👉 *Only the people you explicitly share with, for exactly as long as you choose.*
-
 ---
 
 ## Use Cases
