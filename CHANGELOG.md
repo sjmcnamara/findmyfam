@@ -33,6 +33,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Forward secrecy audit logging** — structured logs track epoch transitions (old → new) on rotation and incoming commits; unprocessable events confirm old epoch keys are deleted per RFC 9420 §14.1
 - **Epoch mismatch warning** — groups with persistent decryption failures show a "Decryption failed" badge in the group list and a red banner in the chat view advising re-invite
 
+### Fixed
+- **Map group filter** — left/inactive groups no longer appear in the group picker on the family map
+- **Key package relay broadcast** — key packages now published to all enabled relays on invite accept, fixing race condition where admin couldn't fetch the invitee's key package
+
 ### Changed
 - **Version bump** — app version updated to 0.8.3 (build 6)
 

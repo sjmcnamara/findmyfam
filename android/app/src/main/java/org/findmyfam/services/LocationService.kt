@@ -93,6 +93,21 @@ class LocationService @Inject constructor(
 
         _isUpdating.value = true
         Timber.i("LocationService started (interval=${intervalSeconds}s)")
+
+        // Seed with last known location so the map shows a pin immediately
+        // instead of waiting for the first GPS fix.
+        try {
+            val lastGps = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            val lastNet = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            val best = listOfNotNull(lastGps, lastNet).maxByOrNull { it.time }
+            if (best != null) {
+                Timber.i("Seeding with last known location: acc=${best.accuracy.toInt()}m provider=${best.provider}")
+                lastFireTime = System.currentTimeMillis()
+                onLocationUpdate?.invoke(best)
+            }
+        } catch (e: SecurityException) {
+            Timber.w("Cannot get last known location: ${e.message}")
+        }
     }
 
     fun stopUpdating() {

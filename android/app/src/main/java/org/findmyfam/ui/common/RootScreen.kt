@@ -29,6 +29,7 @@ import org.findmyfam.viewmodels.GroupDetailViewModel
 import org.findmyfam.viewmodels.GroupListViewModel
 import org.findmyfam.viewmodels.LocationViewModel
 import org.findmyfam.ui.map.FamilyMapScreen
+import org.findmyfam.ui.map.GroupOption
 import org.findmyfam.ui.identity.ExportKeyScreen
 import org.findmyfam.ui.identity.ImportKeyScreen
 import org.findmyfam.ui.settings.SettingsScreen
@@ -219,8 +220,14 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
                     )
                 }
 
+                val marmotGroups by viewModel.marmotService.groups.collectAsState()
+                val activeGroups = marmotGroups.filter { it.state == "active" }.map {
+                    GroupOption(id = it.mlsGroupId, name = it.name)
+                }
+
                 FamilyMapScreen(
                     locationViewModel = locationViewModel,
+                    groups = activeGroups,
                     onPermissionGranted = { viewModel.onLocationPermissionGranted() },
                     modifier = Modifier.fillMaxSize()
                 )

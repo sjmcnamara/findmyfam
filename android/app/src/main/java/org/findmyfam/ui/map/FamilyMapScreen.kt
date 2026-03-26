@@ -11,8 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import org.osmdroid.config.Configuration
@@ -25,10 +28,13 @@ import org.findmyfam.viewmodels.MemberAnnotation
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalPermissionsApi::class)
+data class GroupOption(val id: String, val name: String)
+
+@OptIn(ExperimentalPermissionsApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun FamilyMapScreen(
     locationViewModel: LocationViewModel,
+    groups: List<GroupOption> = emptyList(),
     onPermissionGranted: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -83,6 +89,68 @@ fun FamilyMapScreen(
         } else {
             // OSM Map
             OsmMapView(annotations = annotations)
+
+            // Group filter picker
+            if (groups.isNotEmpty()) {
+                val selectedGroupId by locationViewModel.selectedGroupId.collectAsState()
+                var expanded by remember { mutableStateOf(false) }
+                val selectedLabel = if (selectedGroupId == null) "All Groups"
+                    else groups.find { it.id == selectedGroupId }?.name ?: "All Groups"
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(12.dp)
+                ) {
+                    FilterChip(
+                        selected = selectedGroupId != null,
+                        onClick = { expanded = true },
+                        label = { Text(selectedLabel) },
+                        leadingIcon = {
+                            Icon(
+                                painter = androidx.compose.ui.res.painterResource(
+                                    id = android.R.drawable.ic_menu_sort_by_size
+                                ),
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("All Groups") },
+                            onClick = {
+                                locationViewModel.selectGroup(null)
+                                expanded = false
+                            },
+                            trailingIcon = {
+                                if (selectedGroupId == null)
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null
+                                    )
+                            }
+                        )
+                        HorizontalDivider()
+                        groups.forEach { group ->
+                            DropdownMenuItem(
+                                text = { Text(group.name.ifEmpty { "Unnamed Group" }) },
+                                onClick = {
+                                    locationViewModel.selectGroup(group.id)
+                                    expanded = false
+                                },
+                                trailingIcon = {
+                                    if (selectedGroupId == group.id)
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = null
+                                        )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
 
             // Empty state overlay
             if (annotations.isEmpty()) {

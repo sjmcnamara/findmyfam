@@ -10,6 +10,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +27,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun GroupListScreen(
     viewModel: GroupListViewModel,
@@ -80,10 +84,20 @@ fun GroupListScreen(
         },
         modifier = modifier
     ) { padding ->
-        LazyColumn(
+        val isRefreshing by viewModel.isRefreshing.collectAsState()
+        val pullRefreshState = rememberPullRefreshState(
+            refreshing = isRefreshing,
+            onRefresh = { viewModel.refresh() }
+        )
+
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .pullRefresh(pullRefreshState)
+        ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize()
         ) {
                 // Pending invites section
                 if (pendingInvites.isNotEmpty()) {
@@ -144,7 +158,7 @@ fun GroupListScreen(
                     }
                 }
 
-                items(groups, key = { it.id }) { group ->
+                items(groups.filter { it.isActive }, key = { it.id }) { group ->
                     val isUnhealthy = group.id in unhealthyGroupIds
 
                     ListItem(
@@ -186,6 +200,13 @@ fun GroupListScreen(
                     HorizontalDivider()
                 }
             }
+
+            PullRefreshIndicator(
+                refreshing = isRefreshing,
+                state = pullRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
 
         // Error display
         if (error != null) {

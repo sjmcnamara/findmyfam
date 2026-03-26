@@ -689,10 +689,15 @@ class MarmotService @Inject constructor(
     suspend fun acceptInvite(encoded: String) {
         val invite = InviteCode.decode(encoded)
 
-        // Publish our key package so the inviter can add us
-        publishKeyPackage(relays = listOf(invite.relay))
+        // Publish our key package to ALL connected relays (not just the invite
+        // relay) so the admin can find it regardless of which relay they query.
+        val allRelays = activeRelayUrls.toMutableList()
+        if (invite.relay !in allRelays) {
+            allRelays.add(invite.relay)
+        }
+        publishKeyPackage(relays = allRelays)
 
-        Timber.i("Accepted invite for group ${invite.groupId} from ${invite.inviterNpub}")
+        Timber.i("Accepted invite for group ${invite.groupId} from ${invite.inviterNpub} — key package published to ${allRelays.size} relay(s)")
     }
 
     // --- Helpers ---
