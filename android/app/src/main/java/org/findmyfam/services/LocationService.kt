@@ -69,8 +69,8 @@ class LocationService @Inject constructor(
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
-                    30_000L,  // min time between updates (ms)
-                    10f,      // min distance (meters)
+                    0L,       // min time between updates (ms) — rely on time throttle only
+                    0f,       // min distance (meters) — rely on time throttle only
                     this
                 )
             }
@@ -82,8 +82,8 @@ class LocationService @Inject constructor(
             if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                 locationManager.requestLocationUpdates(
                     LocationManager.NETWORK_PROVIDER,
-                    30_000L,
-                    10f,
+                    0L,
+                    0f,
                     this
                 )
             }

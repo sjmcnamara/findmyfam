@@ -667,6 +667,27 @@ class MarmotService @Inject constructor(
             for (event in events) {
                 handleIncomingEvent(event)
             }
+
+            // Retry any pending gift-wraps that previously failed (e.g. "No matching key package")
+            val pendingIds = settings.pendingGiftWrapEventIds
+            if (pendingIds.isNotEmpty()) {
+                val pendingEventIds = pendingIds.mapNotNull { pendingId ->
+                    try {
+                        rust.nostr.sdk.EventId.parse(pendingId)
+                    } catch (e: Exception) {
+                        Timber.w("fetchMissedGiftWraps: invalid pending event id '$pendingId', skipping: $e")
+                        null
+                    }
+                }
+                if (pendingEventIds.isNotEmpty()) {
+                    val pendingFilter = Filter().ids(ids = pendingEventIds)
+                    val pendingEvents = relay.fetchEvents(filter = pendingFilter, timeout = java.time.Duration.ofSeconds(10))
+                    Timber.i("fetchMissedGiftWraps: retrying pending gift-wraps (${pendingEvents.size})")
+                    for (event in pendingEvents) {
+                        handleIncomingEvent(event)
+                    }
+                }
+            }
         } catch (e: Exception) {
             Timber.e("fetchMissedGiftWraps failed: $e")
         }
