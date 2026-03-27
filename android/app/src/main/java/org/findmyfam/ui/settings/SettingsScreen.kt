@@ -202,7 +202,7 @@ fun SettingsScreen(
                         expanded = intervalExpanded,
                         onDismissRequest = { intervalExpanded = false }
                     ) {
-                        listOf(300 to "5 min", 900 to "15 min", 1800 to "30 min", 3600 to "1 hour", 7200 to "2 hours").forEach { (secs, label) ->
+                        listOf(10 to "10 sec", 300 to "5 min", 900 to "15 min", 1800 to "30 min", 3600 to "1 hour").forEach { (secs, label) ->
                             DropdownMenuItem(
                                 text = { Text(label) },
                                 onClick = {
