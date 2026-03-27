@@ -108,7 +108,7 @@ class AppViewModel @Inject constructor(
             // Start real-time subscriptions
             marmotService.startSubscriptions()
 
-            // Broadcast display name to newly joined groups
+            // Broadcast display name and trigger immediate location send for newly joined groups
             viewModelScope.launch {
                 marmotService.lastJoinedGroupId.collect { groupId ->
                     if (groupId != null) {
@@ -123,6 +123,8 @@ class AppViewModel @Inject constructor(
                                 Timber.w("Failed to broadcast nickname to group $groupId: ${e.message}")
                             }
                         }
+                        // Reset location throttle so the new group gets a pin immediately
+                        locationService.resetThrottle()
                     }
                 }
             }
@@ -159,7 +161,7 @@ class AppViewModel @Inject constructor(
                 ts = System.currentTimeMillis() / 1000
             )
             val myPubkey = identity.publicKeyHex ?: return
-            val groups = marmotService.groups.value
+            val groups = marmotService.groups.value.filter { it.isActive }
             for (group in groups) {
                 // Cache locally so the map shows our own pin
                 locationCache.update(group.mlsGroupId, myPubkey, payload)
@@ -168,7 +170,7 @@ class AppViewModel @Inject constructor(
                     try {
                         marmotService.sendLocationUpdate(payload, group.mlsGroupId)
                     } catch (e: Exception) {
-                        Timber.d("Failed to send location to group ${group.mlsGroupId}: ${e.message}")
+                        Timber.e("Failed to send location to group ${group.mlsGroupId}: ${e.message}")
                     }
                 }
             }
