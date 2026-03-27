@@ -37,6 +37,13 @@ class AppViewModel @Inject constructor(
     val appLockService: AppLockService
 ) : ViewModel() {
 
+    val locationViewModel = LocationViewModel(
+        locationCache = locationCache,
+        nicknameStore = nicknameStore,
+        intervalSeconds = { settings.locationIntervalSeconds },
+        myPubkeyHex = { identity.publicKeyHex }
+    )
+
     enum class StartupPhase {
         SPLASH, CONNECTING, INITIALISING_ENCRYPTION, LOADING_GROUPS, READY
     }

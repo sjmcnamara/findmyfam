@@ -27,7 +27,6 @@ import org.findmyfam.viewmodels.AppViewModel.StartupPhase
 import org.findmyfam.viewmodels.ChatViewModel
 import org.findmyfam.viewmodels.GroupDetailViewModel
 import org.findmyfam.viewmodels.GroupListViewModel
-import org.findmyfam.viewmodels.LocationViewModel
 import org.findmyfam.ui.map.FamilyMapScreen
 import org.findmyfam.ui.map.GroupOption
 import org.findmyfam.ui.identity.ExportKeyScreen
@@ -224,14 +223,7 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
 
             // Family map
             composable(Routes.MAP) {
-                val locationViewModel = remember {
-                    LocationViewModel(
-                        locationCache = viewModel.locationCache,
-                        nicknameStore = viewModel.nicknameStore,
-                        intervalSeconds = { viewModel.settings.locationIntervalSeconds },
-                        myPubkeyHex = { viewModel.identity.publicKeyHex }
-                    )
-                }
+                val locationViewModel = viewModel.locationViewModel
 
                 val marmotGroups by viewModel.marmotService.groups.collectAsState()
                 val activeGroups = marmotGroups.filter { it.state == "active" }.map {
