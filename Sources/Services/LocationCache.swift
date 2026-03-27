@@ -1,4 +1,5 @@
 import Foundation
+import FindMyFamCore
 
 /// In-memory cache of the latest location for each group member.
 ///

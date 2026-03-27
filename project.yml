@@ -11,6 +11,8 @@ options:
   tabWidth: 4
 
 packages:
+  FindMyFamCore:
+    path: FindMyFamCore
   NostrSDK:
     url: https://github.com/rust-nostr/nostr-sdk-swift
     from: "0.44.2"
@@ -32,6 +34,7 @@ targets:
       - path: Sources
       - path: Resources/Assets.xcassets
     dependencies:
+      - package: FindMyFamCore
       - package: NostrSDK
       - package: MDKBindings
     settings:
