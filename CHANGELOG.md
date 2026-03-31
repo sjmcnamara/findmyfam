@@ -10,6 +10,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - **Branding refresh** — user-facing app name updated from Famstr to Whistle on iOS and Android (launcher label, splash title, lock prompts, and permission copy)
+- **Deep-link migration** — moved invite/member approval links from `famstr://` to `whistle://` across iOS, Android, shared models, tests, and docs
+- **URL scheme registration** — updated app URL handling configuration to register the `whistle` scheme on both platforms
+- **Bonjour service rename** — updated local discovery services from `_famstr` to `_whistle` and regenerated iOS project outputs
 - **App icons/logo** — updated launcher icon assets for both platforms to the new Whistle branding pack
 - **Version bump** — iOS 0.8.5 (build 8), Android 0.8.5 (build 5)
 
