@@ -222,7 +222,7 @@ fun SettingsScreen(
                 icon = Icons.Default.Code,
                 trailing = {
                     TextButton(onClick = {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sjmcnamara/findmyfam")))
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sjmcnamara/whistle")))
                     }) {
                         Text("GitHub")
                     }

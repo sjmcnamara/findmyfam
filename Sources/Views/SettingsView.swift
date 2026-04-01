@@ -173,7 +173,7 @@ struct SettingsView: View {
             HStack {
                 Text("Source")
                 Spacer()
-                Link("GitHub", destination: URL(string: "https://github.com/sjmcnamara/findmyfam")!)
+                Link("GitHub", destination: URL(string: "https://github.com/sjmcnamara/whistle")!)
             }
         }
     }
