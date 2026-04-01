@@ -2,7 +2,7 @@
 
 An open-source, decentralized location sharing app powered by Nostr, MLS and the Marmot Protocol.
 
-Marmots form tight-knit family networks, communicating through whistling, and work together to keep their kin safe.
+> Marmots are deeply social animals that form tight-knit family networks. They communicate through whistling, watch out for each other, and work together to keep their kin safe — no matter how far apart they roam.
 
 Whistle is a private group network built on the same instinct — stay connected, share your location, and communicate securely with the people who matter most. 
 
