@@ -239,6 +239,12 @@ _Cleaner Settings UX — released 2026-04-01_
 - **Android identity card**: inline QR replaced with tappable row navigating to full-screen IdentityCardScreen (matching iOS pattern)
 - **Android About parity**: added missing Protocol and GitHub source link to match iOS
 
+### v0.9.2 — Splash & Appearance ✅
+_Branding polish and dark mode support — released 2026-04-01_
+
+- **Dark mode setting**: three-way Appearance picker (System / Light / Dark) in Settings; iOS uses `preferredColorScheme`, Android overrides `isSystemInDarkTheme()` via reactive `StateFlow`
+- **Splash screen rebrand**: replaced SF Symbol / text-based splash with Whistle wordmark + zap icon PNG; simplified to a clean loader view on both platforms
+
 ---
 
 ### v1.0 — Social & Connectivity
@@ -276,6 +282,7 @@ master
   └── release/0.8.6                     ✅ merged
   └── feature/v0.9-mls-db-encryption   ✅ merged
   └── feature/v0.9.1-settings-split    ✅ merged
+  └── feature/v0.9.2-splash-appearance ✅ merged
   └── feature/v1.0-social-connectivity
 ```
 

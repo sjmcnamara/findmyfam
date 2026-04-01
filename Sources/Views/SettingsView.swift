@@ -9,6 +9,7 @@ struct SettingsView: View {
             List {
                 identitySection
                 locationSection
+                appearanceSection
                 aboutSection
 
                 Section {
@@ -137,6 +138,21 @@ struct SettingsView: View {
         @unknown default:
             Text("Unknown")
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private var appearanceSection: some View {
+        Section("Appearance") {
+            Picker(selection: Binding(
+                get: { appViewModel.settings.appearance },
+                set: { appViewModel.settings.appearance = $0 }
+            )) {
+                ForEach(AppAppearance.allCases) { mode in
+                    Text(mode.displayName).tag(mode)
+                }
+            } label: {
+                Label("Theme", systemImage: "circle.lefthalf.filled")
+            }
         }
     }
 

@@ -5,6 +5,8 @@ import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import org.findmyfam.shared.models.AppDefaults
 import org.findmyfam.shared.models.RelayConfig
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
 import org.json.JSONObject
 import timber.log.Timber
@@ -241,6 +243,20 @@ class AppSettings @Inject constructor(
         obj.put(groupId, System.currentTimeMillis() / 1000)
         prefs.edit().putString(KEY_GROUP_LAST_CHAT, obj.toString()).apply()
     }
+
+    // --- Appearance ---
+
+    private val _appearanceFlow = MutableStateFlow(
+        prefs.getString(AppDefaults.Keys.appearance, "system") ?: "system"
+    )
+    val appearanceFlow: StateFlow<String> = _appearanceFlow
+
+    var appearance: String
+        get() = _appearanceFlow.value
+        set(value) {
+            prefs.edit().putString(AppDefaults.Keys.appearance, value).apply()
+            _appearanceFlow.value = value
+        }
 
     // --- Key rotation ---
 

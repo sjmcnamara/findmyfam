@@ -26,12 +26,21 @@ private val DarkColorScheme = darkColorScheme(
     error = androidx.compose.ui.graphics.Color(0xFFEF5350),
 )
 
+/**
+ * @param appearance User preference: "system", "light", or "dark".
+ */
 @Composable
 fun FindMyFamTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    appearance: String = "system",
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    val darkTheme = when (appearance) {
+        "light" -> false
+        "dark" -> true
+        else -> isSystemInDarkTheme()
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current

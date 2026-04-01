@@ -1,6 +1,21 @@
 import Foundation
 import Combine
+import SwiftUI
 import WhistleCore
+
+/// User's preferred appearance mode.
+enum AppAppearance: String, CaseIterable, Identifiable {
+    case system, light, dark
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .system: "System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+}
 
 /// App-wide settings backed by UserDefaults.
 final class AppSettings: ObservableObject {
@@ -60,10 +75,25 @@ final class AppSettings: ObservableObject {
         didSet { savePendingGiftWrapEventIds() }
     }
 
+    /// User's preferred appearance (system / light / dark).
+    @Published var appearance: AppAppearance {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: Keys.appearance) }
+    }
+
     /// How often (in days) MLS group keys are automatically rotated via self-update.
     /// Default: 7 days. Range: 1–30.
     @Published var keyRotationIntervalDays: Int {
         didSet { UserDefaults.standard.set(keyRotationIntervalDays, forKey: Keys.keyRotationIntervalDays) }
+    }
+
+    /// SwiftUI color scheme derived from the appearance preference.
+    /// Returns `nil` for `.system` so the OS default is used.
+    var colorScheme: ColorScheme? {
+        switch appearance {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
     }
 
     /// Rotation interval converted to seconds for the MDK API.
@@ -84,6 +114,7 @@ final class AppSettings: ObservableObject {
             .nonZeroOr(AppDefaults.defaultLocationIntervalSeconds)
         self.isLocationPaused = UserDefaults.standard.bool(forKey: Keys.locationPaused)
         self.displayName = UserDefaults.standard.string(forKey: Keys.displayName) ?? ""
+        self.appearance = AppAppearance(rawValue: UserDefaults.standard.string(forKey: Keys.appearance) ?? "") ?? .system
         self.isAppLockEnabled = UserDefaults.standard.bool(forKey: Keys.appLockEnabled)
         self.isAppLockReauthOnForeground = UserDefaults.standard.bool(forKey: Keys.appLockReauthOnForeground)
         let storedTimestamp = UserDefaults.standard.integer(forKey: Keys.lastEventTimestamp)

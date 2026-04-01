@@ -154,6 +154,42 @@ fun SettingsScreen(
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
+            // Appearance section
+            SectionHeader("Appearance")
+
+            var appearanceExpanded by remember { mutableStateOf(false) }
+            SettingsRow(
+                label = "Theme",
+                icon = Icons.Default.DarkMode,
+                trailing = {
+                    TextButton(onClick = { appearanceExpanded = true }) {
+                        Text(
+                            when (settings.appearance) {
+                                "light" -> "Light"
+                                "dark" -> "Dark"
+                                else -> "System"
+                            }
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = appearanceExpanded,
+                        onDismissRequest = { appearanceExpanded = false }
+                    ) {
+                        listOf("system" to "System", "light" to "Light", "dark" to "Dark").forEach { (value, label) ->
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    settings.appearance = value
+                                    appearanceExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            )
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
             // About section
             SectionHeader("About")
 

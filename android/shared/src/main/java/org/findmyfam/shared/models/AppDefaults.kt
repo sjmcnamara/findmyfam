@@ -35,5 +35,6 @@ object AppDefaults {
         const val pendingLeaveRequests = "fmf.pendingLeaveRequests"
         const val pendingGiftWrapEventIds = "fmf.pendingGiftWrapEventIds"
         const val keyRotationIntervalDays = "fmf.keyRotationIntervalDays"
+        const val appearance = "fmf.appearance"
     }
 }

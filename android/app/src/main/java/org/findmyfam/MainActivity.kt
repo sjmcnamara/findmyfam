@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
 import dagger.hilt.android.AndroidEntryPoint
+import org.findmyfam.models.AppSettings
 import org.findmyfam.services.AppLockService
 import org.findmyfam.ui.common.AppLockScreen
 import org.findmyfam.ui.common.RootScreen
@@ -27,6 +28,7 @@ import javax.inject.Inject
 class MainActivity : FragmentActivity() {
 
     @Inject lateinit var appLockService: AppLockService
+    @Inject lateinit var appSettings: AppSettings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,7 +37,8 @@ class MainActivity : FragmentActivity() {
         appLockService.onLaunch()
 
         setContent {
-            FindMyFamTheme {
+            val appearance by appSettings.appearanceFlow.collectAsState()
+            FindMyFamTheme(appearance = appearance) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background

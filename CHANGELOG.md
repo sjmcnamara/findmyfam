@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.9.2] — 2026-04-01
+
+### Added
+- **Dark mode setting** — three-way Appearance picker (System / Light / Dark) in Settings on both iOS and Android; takes effect immediately without restart
+- **Splash screen rebrand** — replaced SF Symbol logo with Whistle wordmark + zap icon (transparent PNG) on both platforms; simplified to a clean loader with progress indicator
+
+### Changed
+- **Version bump** — iOS 0.9.2 (build 12), Android 0.9.2 (versionCode 9)
+
+---
+
 ## [0.9.1] — 2026-04-01
 
 ### Changed

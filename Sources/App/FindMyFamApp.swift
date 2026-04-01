@@ -36,6 +36,7 @@ struct FindMyFamApp: App {
                     .zIndex(2)
                 }
             }
+            .preferredColorScheme(appViewModel.settings.colorScheme)
             .animation(.easeOut(duration: 0.45), value: appViewModel.startupPhase == .ready)
             .task {
                 appLockService.onLaunch()
