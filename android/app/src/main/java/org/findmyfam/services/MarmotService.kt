@@ -661,13 +661,14 @@ class MarmotService @Inject constructor(
             }
 
             // Retry any pending gift-wraps that previously failed (e.g. "No matching key package")
-            val pendingIds = settings.pendingGiftWrapEventIds
+            val pendingIds = settings.pendingGiftWrapEventIds.toSet()
             if (pendingIds.isNotEmpty()) {
                 val pendingEventIds = pendingIds.mapNotNull { pendingId ->
                     try {
                         rust.nostr.sdk.EventId.parse(pendingId)
                     } catch (e: Exception) {
-                        Timber.w("fetchMissedGiftWraps: invalid pending event id '$pendingId', skipping: $e")
+                        Timber.w("fetchMissedGiftWraps: invalid pending event id '$pendingId', removing")
+                        settings.removePendingGiftWrapEventId(pendingId)
                         null
                     }
                 }
@@ -677,6 +678,18 @@ class MarmotService @Inject constructor(
                     Timber.i("fetchMissedGiftWraps: retrying pending gift-wraps (${pendingEvents.size})")
                     for (event in pendingEvents) {
                         handleIncomingEvent(event)
+                    }
+
+                    // Any IDs still pending after retry are permanently
+                    // unrecoverable (key package gone from a previous DB).
+                    // Mark as processed so we stop refetching every launch.
+                    val stillPending = settings.pendingGiftWrapEventIds.intersect(pendingIds)
+                    if (stillPending.isNotEmpty()) {
+                        Timber.i("fetchMissedGiftWraps: expiring ${stillPending.size} unrecoverable gift-wrap(s)")
+                        for (id in stillPending) {
+                            settings.removePendingGiftWrapEventId(id)
+                            settings.addProcessedEventId(id)
+                        }
                     }
                 }
             }
