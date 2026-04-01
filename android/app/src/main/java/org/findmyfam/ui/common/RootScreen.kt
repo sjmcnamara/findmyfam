@@ -30,6 +30,7 @@ import org.findmyfam.viewmodels.GroupListViewModel
 import org.findmyfam.ui.map.FamilyMapScreen
 import org.findmyfam.ui.map.GroupOption
 import org.findmyfam.ui.identity.ExportKeyScreen
+import org.findmyfam.ui.identity.IdentityCardScreen
 import org.findmyfam.ui.identity.ImportKeyScreen
 import org.findmyfam.ui.settings.AdvancedSettingsScreen
 import org.findmyfam.ui.settings.SettingsScreen
@@ -43,6 +44,7 @@ object Routes {
     const val SETTINGS = "settings"
     const val QR_SCANNER = "qr_scanner"
     const val ADVANCED_SETTINGS = "settings/advanced"
+    const val IDENTITY_CARD = "identity/card"
     const val EXPORT_KEY = "identity/export"
     const val IMPORT_KEY = "identity/import"
 
@@ -250,6 +252,7 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
                     onExportKey = { navController.navigate(Routes.EXPORT_KEY) },
                     onImportKey = { navController.navigate(Routes.IMPORT_KEY) },
                     onAdvanced = { navController.navigate(Routes.ADVANCED_SETTINGS) },
+                    onIdentityCard = { navController.navigate(Routes.IDENTITY_CARD) },
                     modifier = Modifier.fillMaxSize()
                 )
             }
@@ -261,6 +264,15 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
                     identity = viewModel.identity,
                     onExportKey = { navController.navigate(Routes.EXPORT_KEY) },
                     onImportKey = { navController.navigate(Routes.IMPORT_KEY) },
+                    onBack = { navController.popBackStack() },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Identity card (QR + npub detail)
+            composable(Routes.IDENTITY_CARD) {
+                IdentityCardScreen(
+                    identity = viewModel.identity,
                     onBack = { navController.popBackStack() },
                     modifier = Modifier.fillMaxSize()
                 )

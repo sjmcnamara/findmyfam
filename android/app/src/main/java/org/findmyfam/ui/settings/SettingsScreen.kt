@@ -1,8 +1,5 @@
 package org.findmyfam.ui.settings
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
@@ -18,7 +15,6 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -26,7 +22,6 @@ import androidx.compose.ui.unit.sp
 import org.findmyfam.models.AppSettings
 import org.findmyfam.services.IdentityService
 import org.findmyfam.services.NicknameStore
-import org.findmyfam.ui.common.QrCodeImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,11 +33,11 @@ fun SettingsScreen(
     onExportKey: () -> Unit = {},
     onImportKey: () -> Unit = {},
     onAdvanced: () -> Unit = {},
+    onIdentityCard: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var displayName by remember { mutableStateOf(settings.displayName) }
-    var showCopied by remember { mutableStateOf(false) }
     var locationPaused by remember { mutableStateOf(settings.isLocationPaused) }
     var locationInterval by remember { mutableIntStateOf(settings.locationIntervalSeconds) }
 
@@ -61,42 +56,46 @@ fun SettingsScreen(
             // Identity section
             SectionHeader("Identity")
 
-            // npub card with QR
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Column(
+            // Nostr key — tap to see full QR card (mirrors iOS IdentityCardView)
+            identity.npub?.let { npub ->
+                Card(
+                    onClick = onIdentityCard,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 ) {
-                    identity.npub?.let { npub ->
-                        QrCodeImage(content = npub, size = 160.dp)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = npub,
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(28.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TextButton(onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("npub", npub))
-                            showCopied = true
-                        }) {
-                            Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (showCopied) "Copied!" else "Copy npub")
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Your Nostr Key",
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            Text(
+                                text = npub.take(20) + "…" + npub.takeLast(8),
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
+                        Icon(
+                            Icons.Default.ChevronRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }
