@@ -31,6 +31,7 @@ import org.findmyfam.ui.map.FamilyMapScreen
 import org.findmyfam.ui.map.GroupOption
 import org.findmyfam.ui.identity.ExportKeyScreen
 import org.findmyfam.ui.identity.ImportKeyScreen
+import org.findmyfam.ui.settings.AdvancedSettingsScreen
 import org.findmyfam.ui.settings.SettingsScreen
 
 // Navigation route constants
@@ -41,6 +42,7 @@ object Routes {
     const val MAP = "map"
     const val SETTINGS = "settings"
     const val QR_SCANNER = "qr_scanner"
+    const val ADVANCED_SETTINGS = "settings/advanced"
     const val EXPORT_KEY = "identity/export"
     const val IMPORT_KEY = "identity/import"
 
@@ -247,6 +249,19 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
                     onDisplayNameChanged = { name -> viewModel.broadcastDisplayName(name) },
                     onExportKey = { navController.navigate(Routes.EXPORT_KEY) },
                     onImportKey = { navController.navigate(Routes.IMPORT_KEY) },
+                    onAdvanced = { navController.navigate(Routes.ADVANCED_SETTINGS) },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Advanced Settings
+            composable(Routes.ADVANCED_SETTINGS) {
+                AdvancedSettingsScreen(
+                    settings = viewModel.settings,
+                    identity = viewModel.identity,
+                    onExportKey = { navController.navigate(Routes.EXPORT_KEY) },
+                    onImportKey = { navController.navigate(Routes.IMPORT_KEY) },
+                    onBack = { navController.popBackStack() },
                     modifier = Modifier.fillMaxSize()
                 )
             }

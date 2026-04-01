@@ -3,6 +3,8 @@ package org.findmyfam.ui.settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
@@ -35,14 +37,13 @@ fun SettingsScreen(
     onDisplayNameChanged: (String) -> Unit = {},
     onExportKey: () -> Unit = {},
     onImportKey: () -> Unit = {},
+    onAdvanced: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var displayName by remember { mutableStateOf(settings.displayName) }
     var showCopied by remember { mutableStateOf(false) }
-    var appLockEnabled by remember { mutableStateOf(settings.isAppLockEnabled) }
     var locationPaused by remember { mutableStateOf(settings.isLocationPaused) }
-    var rotationDays by remember { mutableIntStateOf(settings.keyRotationIntervalDays) }
     var locationInterval by remember { mutableIntStateOf(settings.locationIntervalSeconds) }
 
     Scaffold(
@@ -115,69 +116,6 @@ fun SettingsScreen(
                 }
             )
 
-            // Key management
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onExportKey,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Export Key")
-                }
-                OutlinedButton(
-                    onClick = onImportKey,
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Import Key")
-                }
-            }
-
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // Security section
-            SectionHeader("Security")
-
-            SettingsToggle(
-                label = "App Lock",
-                icon = Icons.Default.Lock,
-                checked = appLockEnabled,
-                onCheckedChange = { appLockEnabled = it; settings.isAppLockEnabled = it }
-            )
-
-            // Key rotation interval
-            var rotationExpanded by remember { mutableStateOf(false) }
-            SettingsRow(
-                label = "Key Rotation",
-                icon = Icons.Default.Refresh,
-                trailing = {
-                    TextButton(onClick = { rotationExpanded = true }) {
-                        Text("$rotationDays days")
-                    }
-                    DropdownMenu(
-                        expanded = rotationExpanded,
-                        onDismissRequest = { rotationExpanded = false }
-                    ) {
-                        listOf(1, 3, 7, 14, 30).forEach { days ->
-                            DropdownMenuItem(
-                                text = { Text("$days day${if (days > 1) "s" else ""}") },
-                                onClick = {
-                                    rotationDays = days; settings.keyRotationIntervalDays = days
-                                    rotationExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            )
-
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
             // Location section
@@ -217,33 +155,6 @@ fun SettingsScreen(
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // Relays section (read-only for now)
-            SectionHeader("Relays")
-
-            for (relay in settings.relays) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Cloud,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = relay.url,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-
-            Divider(modifier = Modifier.padding(vertical = 8.dp))
-
             // About section
             SectionHeader("About")
 
@@ -252,12 +163,57 @@ fun SettingsScreen(
                 icon = Icons.Default.Info,
                 trailing = {
                     Text(
-                        text = "${LocalContext.current.packageManager.getPackageInfo(LocalContext.current.packageName, 0).versionName} (Android)",
+                        text = "${context.packageManager.getPackageInfo(context.packageName, 0).versionName} (Android)",
                         fontSize = 14.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             )
+
+            SettingsRow(
+                label = "Protocol",
+                icon = Icons.Default.Security,
+                trailing = {
+                    Text(
+                        text = "Nostr & MLS & Marmot",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            )
+
+            SettingsRow(
+                label = "Source",
+                icon = Icons.Default.Code,
+                trailing = {
+                    TextButton(onClick = {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/sjmcnamara/findmyfam")))
+                    }) {
+                        Text("GitHub")
+                    }
+                }
+            )
+
+            Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+            // Advanced link
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                TextButton(onClick = onAdvanced) {
+                    Text("Advanced Settings")
+                }
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -265,7 +221,7 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SectionHeader(title: String) {
+internal fun SectionHeader(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleSmall,
@@ -275,7 +231,7 @@ private fun SectionHeader(title: String) {
 }
 
 @Composable
-private fun SettingsToggle(
+internal fun SettingsToggle(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     checked: Boolean,
@@ -295,7 +251,7 @@ private fun SettingsToggle(
 }
 
 @Composable
-private fun SettingsRow(
+internal fun SettingsRow(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     trailing: @Composable () -> Unit

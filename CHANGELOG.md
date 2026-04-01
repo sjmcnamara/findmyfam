@@ -6,6 +6,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.9.1] — 2026-04-01
+
+### Changed
+- **Settings / Advanced split** — main Settings screen now shows Identity (Nostr key + display name), Location, and About; Import/Export Key, Security, Relays, and Connection moved to a new Advanced Settings screen (both platforms)
+- **Android About section** — added missing Protocol ("Nostr & MLS & Marmot") and GitHub source link to match iOS
+- **Version bump** — iOS 0.9.1 (build 11), Android 0.9.1 (versionCode 8)
+
+---
+
 ## [0.9.0] — 2026-04-01
 
 ### Security
