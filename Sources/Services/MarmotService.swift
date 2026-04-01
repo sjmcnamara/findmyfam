@@ -777,17 +777,33 @@ final class MarmotService: ObservableObject {
                     do {
                         return try EventId.parse(id: pendingId)
                     } catch {
-                        FMFLogger.marmot.warning("fetchMissedGiftWraps: invalid pending event id '\(pendingId)', skipping: \(error)")
+                        FMFLogger.marmot.warning("fetchMissedGiftWraps: invalid pending event id '\(pendingId)', removing")
+                        settings?.pendingGiftWrapEventIds.remove(pendingId)
                         return nil
                     }
                 }
 
                 if !pendingEventIds.isEmpty {
+                    // Snapshot the IDs before retry so we can detect which ones still fail.
+                    let idsBeforeRetry = pendingIds
+
                     let pendingFilter = Filter().ids(ids: pendingEventIds)
                     let pendingEvents = try await relay.fetchEvents(filter: pendingFilter, timeout: 10)
                     FMFLogger.marmot.info("fetchMissedGiftWraps: retrying pending gift-wraps (\(pendingEvents.count))")
                     for event in pendingEvents {
                         await handleIncomingEvent(event)
+                    }
+
+                    // Any IDs that are still pending after retry are permanently
+                    // unrecoverable (key package gone from a previous DB). Mark
+                    // them as processed so we stop refetching every launch.
+                    let stillPending = settings?.pendingGiftWrapEventIds.intersection(idsBeforeRetry) ?? []
+                    if !stillPending.isEmpty {
+                        FMFLogger.marmot.info("fetchMissedGiftWraps: expiring \(stillPending.count) unrecoverable gift-wrap(s)")
+                        for id in stillPending {
+                            settings?.pendingGiftWrapEventIds.remove(id)
+                            settings?.processedEventIds.insert(id)
+                        }
                     }
                 }
             }

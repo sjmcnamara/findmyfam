@@ -17,7 +17,10 @@ struct FindMyFamApp: App {
 
                 if appViewModel.startupPhase != .ready {
                     SplashView(phase: appViewModel.startupPhase)
-                        .transition(.opacity)
+                        .transition(.asymmetric(
+                            insertion: .identity,
+                            removal: .opacity.animation(.easeOut(duration: 0.45))
+                        ))
                         .zIndex(1)
                 }
 
@@ -36,7 +39,7 @@ struct FindMyFamApp: App {
                     .zIndex(2)
                 }
             }
-            .animation(.easeOut(duration: 0.45), value: appViewModel.startupPhase == .ready)
+            .preferredColorScheme(appViewModel.settings.colorScheme)
             .task {
                 appLockService.onLaunch()
                 await appViewModel.onAppear()
