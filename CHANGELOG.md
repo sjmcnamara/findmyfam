@@ -19,6 +19,15 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.9.3] — 2026-04-02
+
+### Security
+- **Commit/Welcome ordering** (MIP-02): commit events are now verified on the relay before the Welcome is sent, preventing state forks where a joiner processes a Welcome but other members can't fetch the corresponding commit
+- **Post-join self-update** (MIP-02): new members immediately rotate key material after joining a group, limiting the KeyPackage exposure window
+- **Gift-wrap retry expiry**: stale/unrecoverable gift-wrap event IDs are purged after one retry pass to prevent infinite retry spam
+
+---
+
 ## [0.9.2] — 2026-04-01
 
 ### Added
