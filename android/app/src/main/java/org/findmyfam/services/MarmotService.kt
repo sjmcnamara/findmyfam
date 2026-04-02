@@ -325,7 +325,10 @@ class MarmotService @Inject constructor(
         val eventId = event.id().toHex()
 
         // Skip already-processed events
-        if (settings.isEventProcessed(eventId)) return
+        if (settings.isEventProcessed(eventId)) {
+            Timber.d("Skipping duplicate event ${eventId.take(8)} (kind ${event.kind().asU16()})")
+            return
+        }
 
         val kind = event.kind().asU16()
 
@@ -346,6 +349,7 @@ class MarmotService @Inject constructor(
 
             // Mark as processed
             settings.addProcessedEventId(eventId)
+            Timber.d("Processed event ${eventId.take(8)} (kind $kind)")
 
             // Update the high-water mark
             val eventTs = event.createdAt().asSecs()

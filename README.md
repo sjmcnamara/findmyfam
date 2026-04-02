@@ -84,7 +84,7 @@ whistle/
 
 ## Status
 
-Active development — iOS and Android at v0.9.1. See [ROADMAP.md](ROADMAP.md) for full history and upcoming phases.
+v1.0 — Production ready. iOS and Android. See [ROADMAP.md](ROADMAP.md) for full history and [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## Wiki
 

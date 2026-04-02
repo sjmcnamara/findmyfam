@@ -1,8 +1,12 @@
 import SwiftUI
+import WhistleCore
 
 struct AdvancedSettingsView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @State private var showBurnConfirmation = false
+    @State private var showAddRelay = false
+    @State private var newRelayURL = ""
+    @State private var relayError: String?
 
     var body: some View {
         List {
@@ -73,7 +77,7 @@ struct AdvancedSettingsView: View {
     }
 
     private var relaysSection: some View {
-        Section("Relays") {
+        Section {
             ForEach(appViewModel.settings.relays) { relay in
                 HStack {
                     Circle()
@@ -82,14 +86,77 @@ struct AdvancedSettingsView: View {
                     Text(relay.url.replacingOccurrences(of: "wss://", with: ""))
                         .font(.body)
                     Spacer()
-                    if !relay.isEnabled {
-                        Text("Disabled")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    Toggle("", isOn: Binding(
+                        get: { relay.isEnabled },
+                        set: { newValue in
+                            if let idx = appViewModel.settings.relays.firstIndex(where: { $0.id == relay.id }) {
+                                appViewModel.settings.relays[idx].isEnabled = newValue
+                            }
+                            Task { await appViewModel.reconnectRelays() }
+                        }
+                    ))
+                    .labelsHidden()
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    if !AppSettings.defaultRelays.contains(where: { $0.url == relay.url }) {
+                        Button(role: .destructive) {
+                            appViewModel.settings.relays.removeAll { $0.id == relay.id }
+                            Task { await appViewModel.reconnectRelays() }
+                        } label: {
+                            Label("Remove", systemImage: "trash")
+                        }
                     }
                 }
             }
+
+            Button {
+                newRelayURL = "wss://"
+                relayError = nil
+                showAddRelay = true
+            } label: {
+                Label("Add Relay", systemImage: "plus.circle")
+            }
+        } header: {
+            Text("Relays")
+        } footer: {
+            Text("Toggle relays on/off. Swipe to remove custom relays. Default relays cannot be removed.")
         }
+        .alert("Add Relay", isPresented: $showAddRelay) {
+            TextField("wss://relay.example.com", text: $newRelayURL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            Button("Add") { addRelay() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            if let relayError {
+                Text(relayError)
+            } else {
+                Text("Enter the WebSocket URL of the relay.")
+            }
+        }
+    }
+
+    private func addRelay() {
+        let url = newRelayURL.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        guard url.hasPrefix("wss://") || url.hasPrefix("ws://") else {
+            relayError = "URL must start with wss:// or ws://"
+            showAddRelay = true
+            return
+        }
+        guard url.count > 6, URL(string: url) != nil else {
+            relayError = "Invalid URL format"
+            showAddRelay = true
+            return
+        }
+        guard !appViewModel.settings.relays.contains(where: { $0.url == url }) else {
+            relayError = "Relay already exists"
+            showAddRelay = true
+            return
+        }
+
+        appViewModel.settings.relays.append(RelayConfig(url: url))
+        Task { await appViewModel.reconnectRelays() }
     }
 
     private var connectionSection: some View {

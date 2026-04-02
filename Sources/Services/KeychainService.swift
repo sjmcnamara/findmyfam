@@ -5,8 +5,12 @@ import Security
 
 /// Keys used to address items in the Keychain.
 enum KeychainKey: String {
-    /// The user's nsec (Nostr secret key), bech32-encoded.
+    /// The user's nsec (Nostr secret key) — SE-encrypted or bech32.
     case nsec = "org.findmyfam.nsec"
+    /// Secure Enclave P-256 private key (opaque dataRepresentation).
+    case sePrivateKey = "org.findmyfam.se.privatekey"
+    /// Ephemeral P-256 public key used in ECDH for nsec encryption.
+    case seEphemeralPublicKey = "org.findmyfam.se.ephemeral-pubkey"
 }
 
 // MARK: - Protocol
@@ -17,57 +21,62 @@ protocol SecureStorage {
     @discardableResult func save(key: KeychainKey, value: String) -> Bool
     func load(key: KeychainKey) -> String?
     @discardableResult func delete(key: KeychainKey) -> Bool
+    @discardableResult func saveData(key: KeychainKey, value: Data, thisDeviceOnly: Bool) -> Bool
+    func loadData(key: KeychainKey) -> Data?
 }
 
 // MARK: - Keychain implementation
 
-/// Keychain-backed secure storage with UserDefaults fallback.
+/// Keychain-backed secure storage.
 ///
-/// Tries iOS Keychain first. If Keychain is unavailable (Simulator quirks,
-/// entitlement issues), falls back to UserDefaults so the identity is stable
-/// across launches. This avoids regenerating a new identity every launch.
+/// Uses iOS Keychain with `kSecAttrAccessibleWhenUnlocked` protection.
+/// No UserDefaults fallback — the nsec must never be stored in plaintext
+/// storage (UserDefaults is included in unencrypted backups).
 final class KeychainService: SecureStorage {
 
     static let shared = KeychainService()
     private init() {}
 
     private static let service = "org.findmyfam"
-    private static let fallbackPrefix = "fmf.keychain.fallback."
+
+    // Legacy fallback key prefix — used only for one-time migration.
+    private static let legacyFallbackPrefix = "fmf.keychain.fallback."
 
     /// Saves a string to the Keychain, overwriting any existing entry.
-    /// Falls back to UserDefaults if Keychain write fails.
     @discardableResult
     func save(key: KeychainKey, value: String) -> Bool {
         guard let data = value.data(using: .utf8) else { return false }
 
         let query: [String: Any] = [
-            kSecClass as String:          kSecClassGenericPassword,
-            kSecAttrService as String:    Self.service,
-            kSecAttrAccount as String:    key.rawValue,
-            kSecValueData as String:      data,
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: key.rawValue,
+            kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlocked
         ]
 
         SecItemDelete(query as CFDictionary)
         let status = SecItemAdd(query as CFDictionary, nil)
 
-        if status == errSecSuccess {
-            return true
+        if status != errSecSuccess {
+            FMFLogger.identity.error("Keychain save failed [\(key.rawValue)]: OSStatus \(status)")
+            return false
         }
 
-        FMFLogger.identity.warning("Keychain save failed [\(key.rawValue)]: OSStatus \(status), using UserDefaults fallback")
-        saveFallback(key: key, value: value)
+        // If we successfully saved to Keychain, remove any legacy fallback
+        removeLegacyFallback(key: key)
         return true
     }
 
-    /// Returns the stored string from Keychain, falling back to UserDefaults.
+    /// Returns the stored string from Keychain.
+    /// On first load, migrates any legacy UserDefaults fallback into Keychain.
     func load(key: KeychainKey) -> String? {
         let query: [String: Any] = [
-            kSecClass as String:        kSecClassGenericPassword,
-            kSecAttrService as String:  Self.service,
-            kSecAttrAccount as String:  key.rawValue,
-            kSecReturnData as String:   true,
-            kSecMatchLimit as String:   kSecMatchLimitOne
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: key.rawValue,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
         ]
 
         var result: AnyObject?
@@ -77,10 +86,13 @@ final class KeychainService: SecureStorage {
             return value
         }
 
-        // Try UserDefaults fallback
-        if let fallback = loadFallback(key: key) {
-            FMFLogger.identity.debug("Loaded \(key.rawValue) from UserDefaults fallback")
-            return fallback
+        // One-time migration: move legacy UserDefaults fallback into Keychain
+        if let legacy = UserDefaults.standard.string(forKey: Self.legacyFallbackPrefix + key.rawValue) {
+            FMFLogger.identity.warning("Migrating \(key.rawValue) from UserDefaults fallback to Keychain")
+            if save(key: key, value: legacy) {
+                removeLegacyFallback(key: key)
+                return legacy
+            }
         }
 
         return nil
@@ -90,27 +102,63 @@ final class KeychainService: SecureStorage {
     @discardableResult
     func delete(key: KeychainKey) -> Bool {
         let query: [String: Any] = [
-            kSecClass as String:       kSecClassGenericPassword,
+            kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: Self.service,
             kSecAttrAccount as String: key.rawValue
         ]
         let status = SecItemDelete(query as CFDictionary)
-        deleteFallback(key: key)
+        removeLegacyFallback(key: key)
         return status == errSecSuccess || status == errSecItemNotFound
     }
 
-    // MARK: - UserDefaults fallback
+    // MARK: - Data-based storage (for SE keys)
 
-    private func saveFallback(key: KeychainKey, value: String) {
-        UserDefaults.standard.set(value, forKey: Self.fallbackPrefix + key.rawValue)
+    @discardableResult
+    func saveData(key: KeychainKey, value: Data, thisDeviceOnly: Bool = false) -> Bool {
+        let accessibility = thisDeviceOnly
+            ? kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+            : kSecAttrAccessibleWhenUnlocked
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: key.rawValue,
+            kSecValueData as String: value,
+            kSecAttrAccessible as String: accessibility
+        ]
+
+        SecItemDelete(query as CFDictionary)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            FMFLogger.identity.error("Keychain saveData failed [\(key.rawValue)]: OSStatus \(status)")
+            return false
+        }
+        return true
     }
 
-    private func loadFallback(key: KeychainKey) -> String? {
-        UserDefaults.standard.string(forKey: Self.fallbackPrefix + key.rawValue)
+    func loadData(key: KeychainKey) -> Data? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: key.rawValue,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        if status == errSecSuccess, let data = result as? Data {
+            return data
+        }
+        return nil
     }
 
-    private func deleteFallback(key: KeychainKey) {
-        UserDefaults.standard.removeObject(forKey: Self.fallbackPrefix + key.rawValue)
+    // MARK: - Legacy migration
+
+    /// Remove any nsec that was previously stored in UserDefaults by the old fallback path.
+    private func removeLegacyFallback(key: KeychainKey) {
+        UserDefaults.standard.removeObject(forKey: Self.legacyFallbackPrefix + key.rawValue)
     }
 }
 
@@ -119,6 +167,7 @@ final class KeychainService: SecureStorage {
 /// Thread-unsafe in-memory storage for use in unit tests.
 final class InMemorySecureStorage: SecureStorage {
     private var store: [String: String] = [:]
+    private var dataStore: [String: Data] = [:]
 
     @discardableResult
     func save(key: KeychainKey, value: String) -> Bool {
@@ -133,6 +182,17 @@ final class InMemorySecureStorage: SecureStorage {
     @discardableResult
     func delete(key: KeychainKey) -> Bool {
         store.removeValue(forKey: key.rawValue)
+        dataStore.removeValue(forKey: key.rawValue)
         return true
+    }
+
+    @discardableResult
+    func saveData(key: KeychainKey, value: Data, thisDeviceOnly: Bool = false) -> Bool {
+        dataStore[key.rawValue] = value
+        return true
+    }
+
+    func loadData(key: KeychainKey) -> Data? {
+        dataStore[key.rawValue]
     }
 }

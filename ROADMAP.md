@@ -269,15 +269,20 @@ _Quality-of-life fixes, welcome consent, burn hardening — released 2026-04-02_
 
 ---
 
-### v1.0 — Social & Connectivity
-_Richer group experience and relay management_
+### v1.0 — Production Readiness
+_Relay polish, security hardening, code quality gates_
 
-- **Custom relay management**: add, remove, toggle relays from Settings; validate connectivity on add
-- **Chat commands**: `/list-members`, `/topic <name>`, `/leave` — slash commands parsed in chat input
-- **Relay redundancy**: publish to multiple relays, subscribe to all, deduplicate by event ID
-- **Privacy audit**: verify no metadata leakage — all group traffic via kind 445, member list not on relays
-- **Secure Enclave-wrapped nsec**: encrypt the Nostr secret key with a Secure Enclave-derived key for hardware-bound protection at rest (secp256k1 incompatible with SE P-256; requires SE-wrapped key encryption approach)
+- **Custom relay management** ✅: add/remove/toggle relays in Advanced Settings with URL validation, live disconnect/reconnect, per-relay connection status dots, dynamic Connection section (iOS & Android)
+- **Relay dedup verification** ✅: confirmed event ID deduplication via `processedEventIds` + MLS `PreviouslyFailed` + gift-wrap retry queue; added structured debug logging on both platforms
+- **Privacy audit** ✅: systematic review passed — no metadata leakage (all payloads MLS-encrypted via kind 445, member lists local-only, gift-wrap hides sender via ephemeral key, no `p`/`e` tags leak group members). Fixed: removed plaintext nsec UserDefaults fallback from KeychainService; MLS encryption mode already logged at startup
+- **Secure Enclave-wrapped nsec** ✅ (iOS): nsec AES-GCM encrypted with Secure Enclave P-256 ECDH-derived key; hardware-bound, auto-migrates plaintext nsec; simulator falls back to plain Keychain. Android: `MasterKey` now requests StrongBox backing; diagnostic log on startup
+- **Android map filter parity** ✅: pending-leave groups hidden from map filter picker (matching iOS v0.9.4)
+- **CI merge gate** ✅: required status checks enabled on master — all CI jobs must pass before merge
+- **SwiftLint strict mode** ✅: all 336 files clean, 0 violations; `--strict` flag enabled in CI
+
+### Deferred
 - **Full SQLCipher activation**: remove `newMdkUnencrypted` fallback once MDK ships `set_default_store()` via UniFFI ([marmot-protocol/mdk#243](https://github.com/marmot-protocol/mdk/issues/243))
+- **Chat commands**: `/list-members`, `/topic <name>`, `/leave` — slash commands parsed in chat input (post-v1.0)
 
 ---
 
@@ -306,8 +311,8 @@ master
   └── feature/v0.9.1-settings-split    ✅ merged
   └── feature/v0.9.2-splash-appearance ✅ merged
   └── security/v0.9.3-mip02-commit-ordering ✅ merged
-  └── feature/v0.9.4-ux-fixes            🔄 PR #34
-  └── feature/v1.0-social-connectivity
+  └── feature/v0.9.4-ux-fixes            ✅ merged (PR #34)
+  └── feature/v1.0-production-readiness
 ```
 
 ---

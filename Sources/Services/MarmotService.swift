@@ -54,10 +54,10 @@ final class MarmotService: ObservableObject {
     /// Subscription task for cancellation support.
     private var subscriptionTask: Task<Void, Error>?
 
-    /// Event IDs already processed — prevents expensive MLS re-processing
-    /// when `fetchMissedGiftWraps()` polls without a `since` filter (NIP-59
-    /// timestamp randomisation makes `since` unreliable for gift-wraps).
-    /// Now persisted in AppSettings to survive restarts.
+    // Event IDs already processed — prevents expensive MLS re-processing
+    // when `fetchMissedGiftWraps()` polls without a `since` filter (NIP-59
+    // timestamp randomisation makes `since` unreliable for gift-wraps).
+    // Now persisted in AppSettings to survive restarts.
 
     // MARK: - Published state
 
@@ -384,7 +384,10 @@ final class MarmotService: ObservableObject {
 
         // Skip already-processed events — prevents expensive MLS re-work
         // during fetchMissedGiftWraps polling (which has no `since` filter).
-        guard !(settings?.processedEventIds.contains(eventId) ?? false) else { return }
+        guard !(settings?.processedEventIds.contains(eventId) ?? false) else {
+            FMFLogger.marmot.debug("Skipping duplicate event \(eventId.prefix(8)) (kind \(event.kind().asU16()))")
+            return
+        }
 
         let kind = event.kind().asU16()
 
@@ -411,6 +414,7 @@ final class MarmotService: ObservableObject {
 
             // Mark as processed so fetchMissedGiftWraps polling skips it.
             settings?.processedEventIds.insert(eventId)
+            FMFLogger.marmot.debug("Processed event \(eventId.prefix(8)) (kind \(kind))")
 
             // Update the high-water mark so the next subscription reconnect
             // uses a `since` filter and only fetches newer events.
@@ -797,7 +801,7 @@ final class MarmotService: ObservableObject {
         FMFLogger.marmot.info("Subscriptions started (group=\(self.groupEventSubId ?? "?"), gift=\(self.giftWrapSubId ?? "?"))")
 
         // Register notification handler — runs until error or disconnect
-        let handler = NotificationHandler { [weak self] subId, event in
+        let handler = NotificationHandler { [weak self] _, event in
             Task { @MainActor [weak self] in
                 await self?.handleIncomingEvent(event)
             }

@@ -231,9 +231,10 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
                 val locationViewModel = viewModel.locationViewModel
 
                 val marmotGroups by viewModel.marmotService.groups.collectAsState()
-                val activeGroups = marmotGroups.filter { it.state == "active" }.map {
-                    GroupOption(id = it.mlsGroupId, name = it.name)
-                }
+                val pendingLeaves by viewModel.pendingLeaveStore.pendingLeaves.collectAsState()
+                val activeGroups = marmotGroups
+                    .filter { it.state == "active" && it.mlsGroupId !in pendingLeaves }
+                    .map { GroupOption(id = it.mlsGroupId, name = it.name) }
 
                 FamilyMapScreen(
                     locationViewModel = locationViewModel,
@@ -260,9 +261,14 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
 
             // Advanced Settings
             composable(Routes.ADVANCED_SETTINGS) {
+                val mlsError by viewModel.mlsError.collectAsState()
                 AdvancedSettingsScreen(
                     settings = viewModel.settings,
                     identity = viewModel.identity,
+                    relayService = viewModel.relay,
+                    mlsReady = viewModel.mls.isInitialised,
+                    mlsError = mlsError,
+                    onReconnectRelays = { viewModel.reconnectRelays() },
                     onExportKey = { navController.navigate(Routes.EXPORT_KEY) },
                     onImportKey = { navController.navigate(Routes.IMPORT_KEY) },
                     onBurnIdentity = {
