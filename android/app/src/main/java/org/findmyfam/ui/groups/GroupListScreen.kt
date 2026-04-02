@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.ExperimentalMaterialApi
@@ -122,10 +123,15 @@ fun GroupListScreen(
                                 )
                             },
                             trailingContent = {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp
-                                )
+                                IconButton(onClick = {
+                                    viewModel.cancelPendingInvite(invite.groupHint)
+                                }) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Cancel invite",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         )
                         HorizontalDivider()

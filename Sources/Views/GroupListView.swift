@@ -119,6 +119,13 @@ struct GroupListView: View {
                         Spacer()
                     }
                     .opacity(0.7)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        Button(role: .destructive) {
+                            viewModel.pendingInviteStore.remove(groupHint: invite.groupHint)
+                        } label: {
+                            Label("Cancel", systemImage: "xmark.circle")
+                        }
+                    }
                 }
             }
         }

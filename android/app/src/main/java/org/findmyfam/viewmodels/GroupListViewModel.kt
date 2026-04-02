@@ -52,6 +52,11 @@ class GroupListViewModel @Inject constructor(
 
     val pendingInvites: StateFlow<List<PendingInvite>> = pendingInviteStore.pendingInvites
     val pendingLeaves: StateFlow<Set<String>> = pendingLeaveStore.pendingLeaves
+
+    /** Dismiss a stale pending invite that will never be accepted. */
+    fun cancelPendingInvite(groupHint: String) {
+        pendingInviteStore.remove(groupHint)
+    }
     val unhealthyGroupIds: StateFlow<Set<String>> = marmotService.healthTracker.unhealthyGroupIds
 
     init {
