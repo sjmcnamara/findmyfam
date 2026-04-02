@@ -1,6 +1,7 @@
 package org.findmyfam.ui.groups
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.findmyfam.services.PendingWelcomeItem
 import org.findmyfam.viewmodels.GroupListViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,9 +39,11 @@ fun GroupListScreen(
     modifier: Modifier = Modifier
 ) {
     val groups by viewModel.groups.collectAsState()
+    val pendingWelcomes by viewModel.pendingWelcomes.collectAsState()
     val pendingInvites by viewModel.pendingInvites.collectAsState()
     val pendingLeaves by viewModel.pendingLeaves.collectAsState()
     val unhealthyGroupIds by viewModel.unhealthyGroupIds.collectAsState()
+    val pendingAdminActionGroupIds by viewModel.pendingAdminActionGroupIds.collectAsState()
     val error by viewModel.error.collectAsState()
 
     var showCreateSheet by remember { mutableStateOf(false) }
@@ -100,6 +104,59 @@ fun GroupListScreen(
         LazyColumn(
             modifier = Modifier.fillMaxSize()
         ) {
+                // Group invitations (unsolicited welcomes awaiting approval)
+                if (pendingWelcomes.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Group Invitations",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 4.dp)
+                        )
+                    }
+                    items(pendingWelcomes, key = { "welcome_${it.mlsGroupId}" }) { welcome ->
+                        ListItem(
+                            headlineContent = {
+                                Text("Group invitation received")
+                            },
+                            supportingContent = {
+                                Text(
+                                    "From ${welcome.senderPubkeyHex.take(16)}...",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            },
+                            trailingContent = {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(
+                                        onClick = { viewModel.declinePendingWelcome(welcome.mlsGroupId) },
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error
+                                        ),
+                                        border = BorderStroke(
+                                            1.dp,
+                                            MaterialTheme.colorScheme.error
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Decline", fontSize = 13.sp)
+                                    }
+                                    Button(
+                                        onClick = { viewModel.approvePendingWelcome(welcome.mlsGroupId) },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                    ) {
+                                        Text("Accept", fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        )
+                        HorizontalDivider()
+                    }
+                }
+
                 // Pending invites section
                 if (pendingInvites.isNotEmpty()) {
                     item {
@@ -139,7 +196,7 @@ fun GroupListScreen(
                 }
 
                 // Groups section
-                if (groups.isEmpty() && pendingInvites.isEmpty()) {
+                if (groups.isEmpty() && pendingInvites.isEmpty() && pendingWelcomes.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier
@@ -166,8 +223,30 @@ fun GroupListScreen(
 
                 items(groups.filter { it.isActive }, key = { it.id }) { group ->
                     val isUnhealthy = group.id in unhealthyGroupIds
+                    val hasAdminAction = group.id in pendingAdminActionGroupIds
 
                     ListItem(
+                        leadingContent = {
+                            Box(contentAlignment = Alignment.TopEnd) {
+                                Icon(
+                                    Icons.Default.Groups,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                if (hasAdminAction) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .offset(x = 2.dp, y = (-2).dp)
+                                            .background(
+                                                color = androidx.compose.ui.graphics.Color(0xFFFF9500),
+                                                shape = androidx.compose.foundation.shape.CircleShape
+                                            )
+                                    )
+                                }
+                            }
+                        },
                         headlineContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(

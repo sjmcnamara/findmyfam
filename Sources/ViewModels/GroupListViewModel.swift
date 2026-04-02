@@ -23,7 +23,11 @@ final class GroupListViewModel: ObservableObject {
     let pendingInviteStore: PendingInviteStore
     let pendingLeaveStore: PendingLeaveStore
     let healthTracker: GroupHealthTracker
+    private let settings: AppSettings
     private var cancellables = Set<AnyCancellable>()
+
+    /// Group IDs where the admin has pending actions (e.g. leave approval).
+    @Published private(set) var pendingAdminActionGroupIds: Set<String> = []
 
     // MARK: - Unread tracking
 
@@ -70,12 +74,14 @@ final class GroupListViewModel: ObservableObject {
         mls: MLSService,
         pendingInviteStore: PendingInviteStore,
         pendingLeaveStore: PendingLeaveStore,
+        settings: AppSettings = .shared,
         displayName: @escaping () -> String = { "" }
     ) {
         self.marmot = marmot
         self.mls = mls
         self.pendingInviteStore = pendingInviteStore
         self.pendingLeaveStore = pendingLeaveStore
+        self.settings = settings
         self.healthTracker = marmot.healthTracker
         self.displayName = displayName
 
@@ -99,6 +105,14 @@ final class GroupListViewModel: ObservableObject {
                 if let idx = self.groups.firstIndex(where: { $0.id == groupId }) {
                     self.groups[idx].hasUnread = true
                 }
+            }
+            .store(in: &cancellables)
+
+        // Track groups with pending admin actions (leave requests, etc.)
+        settings.$pendingLeaveRequests
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] requests in
+                self?.pendingAdminActionGroupIds = Set(requests.filter { !$0.value.isEmpty }.keys)
             }
             .store(in: &cancellables)
 

@@ -5,13 +5,22 @@ struct GroupRowView: View {
     let group: GroupListViewModel.GroupListItem
     var isUnhealthy: Bool = false
     var isLeaving: Bool = false
+    var hasAdminAction: Bool = false
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "person.3.fill")
-                .font(.title2)
-                .foregroundStyle(group.isActive && !isLeaving ? .blue : .secondary)
-                .frame(width: 36)
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "person.3.fill")
+                    .font(.title2)
+                    .foregroundStyle(group.isActive && !isLeaving ? .blue : .secondary)
+                    .frame(width: 36)
+                if hasAdminAction {
+                    Circle()
+                        .fill(.orange)
+                        .frame(width: 8, height: 8)
+                        .offset(x: 2, y: -2)
+                }
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {

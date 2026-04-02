@@ -25,7 +25,8 @@ class GroupListViewModel @Inject constructor(
     private val mlsService: MLSService,
     private val settings: AppSettings,
     private val pendingInviteStore: PendingInviteStore,
-    private val pendingLeaveStore: PendingLeaveStore
+    private val pendingLeaveStore: PendingLeaveStore,
+    private val pendingWelcomeStore: PendingWelcomeStore
 ) : ViewModel() {
 
     // --- Item model ---
@@ -52,11 +53,40 @@ class GroupListViewModel @Inject constructor(
 
     val pendingInvites: StateFlow<List<PendingInvite>> = pendingInviteStore.pendingInvites
     val pendingLeaves: StateFlow<Set<String>> = pendingLeaveStore.pendingLeaves
+    val pendingWelcomes: StateFlow<List<PendingWelcomeItem>> = pendingWelcomeStore.pendingWelcomes
+
+    private val _pendingAdminActionGroupIds = MutableStateFlow<Set<String>>(emptySet())
+    val pendingAdminActionGroupIds: StateFlow<Set<String>> = _pendingAdminActionGroupIds.asStateFlow()
 
     /** Dismiss a stale pending invite that will never be accepted. */
     fun cancelPendingInvite(groupHint: String) {
         pendingInviteStore.remove(groupHint)
     }
+
+    /** Accept an unsolicited welcome after user approval. */
+    fun approvePendingWelcome(mlsGroupId: String) {
+        viewModelScope.launch {
+            try {
+                marmotService.approvePendingWelcome(mlsGroupId)
+            } catch (e: Exception) {
+                _error.value = e.message
+                Timber.e("Failed to approve welcome for group $mlsGroupId: $e")
+            }
+        }
+    }
+
+    /** Decline an unsolicited welcome. */
+    fun declinePendingWelcome(mlsGroupId: String) {
+        viewModelScope.launch {
+            try {
+                marmotService.declinePendingWelcome(mlsGroupId)
+            } catch (e: Exception) {
+                _error.value = e.message
+                Timber.e("Failed to decline welcome for group $mlsGroupId: $e")
+            }
+        }
+    }
+
     val unhealthyGroupIds: StateFlow<Set<String>> = marmotService.healthTracker.unhealthyGroupIds
 
     init {
@@ -129,6 +159,10 @@ class GroupListViewModel @Inject constructor(
         }.filter { !pendingLeaveStore.contains(it.id) }
 
         _groups.value = items
+
+        // Recompute admin action badges
+        _pendingAdminActionGroupIds.value = settings.pendingLeaveRequests
+            .filter { it.value.isNotEmpty() }.keys
 
         // Clean up pending leaves for groups that no longer exist
         val activeIds = mdkGroups.map { it.mlsGroupId }.toSet()

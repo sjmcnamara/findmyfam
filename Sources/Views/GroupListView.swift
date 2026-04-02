@@ -10,7 +10,7 @@ struct GroupListView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if viewModel.groups.isEmpty && viewModel.pendingInviteStore.pendingInvites.isEmpty {
+                if viewModel.groups.isEmpty && viewModel.pendingInviteStore.pendingInvites.isEmpty && appViewModel.pendingWelcomeStore.pendingWelcomes.isEmpty {
                     emptyState
                 } else {
                     groupList
@@ -57,6 +57,7 @@ struct GroupListView: View {
 
     private var groupList: some View {
         List {
+            pendingWelcomesSection
             pendingInvitesSection
             ForEach(viewModel.groups) { group in
                 NavigationLink {
@@ -66,7 +67,8 @@ struct GroupListView: View {
                     GroupRowView(
                         group: group,
                         isUnhealthy: viewModel.healthTracker.isUnhealthy(groupId: group.id),
-                        isLeaving: viewModel.pendingLeaveStore.contains(group.id)
+                        isLeaving: viewModel.pendingLeaveStore.contains(group.id),
+                        hasAdminAction: viewModel.pendingAdminActionGroupIds.contains(group.id)
                     )
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -94,6 +96,57 @@ struct GroupListView: View {
         } message: {
             if let group = groupToLeave {
                 Text("Leave \"\(group.name)\"? The admin will be notified to remove you.")
+            }
+        }
+    }
+
+    // MARK: - Pending welcomes (consent required)
+
+    @ViewBuilder
+    private var pendingWelcomesSection: some View {
+        let pending = appViewModel.pendingWelcomeStore.pendingWelcomes
+        if !pending.isEmpty {
+            Section("Group Invitations") {
+                ForEach(pending) { pw in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 12) {
+                            Image(systemName: "person.badge.plus")
+                                .foregroundStyle(.blue)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Group Invitation")
+                                    .font(.body)
+                                Text("From \(appViewModel.nicknameStore.displayName(for: pw.senderPubkeyHex))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                        }
+
+                        HStack(spacing: 12) {
+                            Button {
+                                Task {
+                                    try? await appViewModel.marmot?.approvePendingWelcome(mlsGroupId: pw.mlsGroupId)
+                                }
+                            } label: {
+                                Label("Accept", systemImage: "checkmark.circle.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(.green)
+
+                            Button(role: .destructive) {
+                                Task {
+                                    try? await appViewModel.marmot?.declinePendingWelcome(mlsGroupId: pw.mlsGroupId)
+                                }
+                            } label: {
+                                Label("Decline", systemImage: "xmark.circle.fill")
+                                    .frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
             }
         }
     }
