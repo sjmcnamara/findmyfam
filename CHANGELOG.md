@@ -6,6 +6,31 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.0.0] — 2026-04-02
+
+### Security
+- **Secure Enclave-wrapped nsec** (iOS): the Nostr secret key is now AES-GCM encrypted with a symmetric key derived from a Secure Enclave-bound P-256 ECDH key agreement; hardware-bound, non-exportable; automatic one-time migration from plaintext Keychain on first launch
+- **StrongBox-backed Keystore** (Android): `MasterKey` now requests StrongBox backing for hardware-bound key encryption on devices with dedicated secure elements; diagnostic log on startup
+- **Plaintext nsec fallback removed** (iOS): the UserDefaults fallback that could store the nsec in plaintext (included in unencrypted backups) has been removed; Keychain-only storage with legacy migration
+- **Privacy audit**: systematic review verified no metadata leakage — all group payloads MLS-encrypted (kind 445), member lists never on relays, NIP-59 gift-wrap hides sender via ephemeral key, no `p`/`e` tags leak group members
+
+### Added
+- **Relay management** (iOS & Android): add custom relays with URL validation, remove custom relays (swipe-to-delete on iOS, X button on Android), enable/disable toggle per relay; default relays cannot be removed
+- **Live relay reconnect**: toggling, adding, or removing a relay immediately disconnects and reconnects with the updated relay set — connection status dots and labels update in real time
+- **Per-relay connection dot**: green dot when connected and enabled, grey when disabled or disconnected (iOS & Android)
+- **Dynamic connection status**: Connection section shows actual relay state (Disconnected / Connecting / Connected / Failed) and MLS crypto state (Starting / Ready / Failed) instead of hardcoded labels
+- **Event dedup logging**: structured debug logs on both platforms confirm duplicate event skipping when subscribed to multiple relays (`processedEventIds` + MLS `PreviouslyFailed`)
+
+### Improved
+- **SwiftLint strict mode**: all 336 Swift files clean with 0 violations; `--strict` flag enabled in CI so any new warning fails the build
+- **Android map filter parity**: pending-leave groups now hidden from the map filter picker on Android (matching iOS v0.9.4 behaviour)
+
+### Changed
+- **CI merge gate**: required status checks enabled on master — all CI jobs must pass before merge
+- **Version bump** — iOS 1.0.0 (build 15), Android 1.0.0 (versionCode 12)
+
+---
+
 ## [0.9.4] — 2026-04-02
 
 ### Security
