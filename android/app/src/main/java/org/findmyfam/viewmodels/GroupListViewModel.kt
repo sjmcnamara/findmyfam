@@ -158,7 +158,9 @@ class GroupListViewModel @Inject constructor(
             )
         }.filter { !pendingLeaveStore.contains(it.id) }
 
-        _groups.value = items
+        val pendingWelcomeIds = pendingWelcomeStore.pendingWelcomes.value.map { it.mlsGroupId }.toSet()
+
+        _groups.value = items.filter { it.id !in pendingWelcomeIds }
 
         // Recompute admin action badges
         _pendingAdminActionGroupIds.value = settings.pendingLeaveRequests

@@ -392,6 +392,7 @@ final class AppViewModel: ObservableObject {
             mls: mls,
             pendingInviteStore: pendingInviteStore,
             pendingLeaveStore: pendingLeaveStore,
+            pendingWelcomeStore: pendingWelcomeStore,
             displayName: { [weak self] in self?.settings.displayName ?? "" }
         )
 

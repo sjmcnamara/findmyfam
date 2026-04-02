@@ -22,6 +22,7 @@ final class GroupListViewModel: ObservableObject {
     private let displayName: () -> String
     let pendingInviteStore: PendingInviteStore
     let pendingLeaveStore: PendingLeaveStore
+    let pendingWelcomeStore: PendingWelcomeStore
     let healthTracker: GroupHealthTracker
     private let settings: AppSettings
     private var cancellables = Set<AnyCancellable>()
@@ -74,6 +75,7 @@ final class GroupListViewModel: ObservableObject {
         mls: MLSService,
         pendingInviteStore: PendingInviteStore,
         pendingLeaveStore: PendingLeaveStore,
+        pendingWelcomeStore: PendingWelcomeStore,
         settings: AppSettings = .shared,
         displayName: @escaping () -> String = { "" }
     ) {
@@ -81,6 +83,7 @@ final class GroupListViewModel: ObservableObject {
         self.mls = mls
         self.pendingInviteStore = pendingInviteStore
         self.pendingLeaveStore = pendingLeaveStore
+        self.pendingWelcomeStore = pendingWelcomeStore
         self.settings = settings
         self.healthTracker = marmot.healthTracker
         self.displayName = displayName
@@ -160,7 +163,10 @@ final class GroupListViewModel: ObservableObject {
                 hasUnread: hasUnread
             ))
         }
-        self.groups = items.filter { !pendingLeaveStore.contains($0.id) }
+        let pendingWelcomeIds = Set(pendingWelcomeStore.pendingWelcomes.map(\.mlsGroupId))
+        self.groups = items.filter {
+            !pendingLeaveStore.contains($0.id) && !pendingWelcomeIds.contains($0.id)
+        }
 
         // Clean up pending leaves for groups that no longer exist
         // (admin processed the removal).
