@@ -22,8 +22,13 @@ final class GroupListViewModel: ObservableObject {
     private let displayName: () -> String
     let pendingInviteStore: PendingInviteStore
     let pendingLeaveStore: PendingLeaveStore
+    let pendingWelcomeStore: PendingWelcomeStore
     let healthTracker: GroupHealthTracker
+    private let settings: AppSettings
     private var cancellables = Set<AnyCancellable>()
+
+    /// Group IDs where the admin has pending actions (e.g. leave approval).
+    @Published private(set) var pendingAdminActionGroupIds: Set<String> = []
 
     // MARK: - Unread tracking
 
@@ -70,12 +75,16 @@ final class GroupListViewModel: ObservableObject {
         mls: MLSService,
         pendingInviteStore: PendingInviteStore,
         pendingLeaveStore: PendingLeaveStore,
+        pendingWelcomeStore: PendingWelcomeStore,
+        settings: AppSettings = .shared,
         displayName: @escaping () -> String = { "" }
     ) {
         self.marmot = marmot
         self.mls = mls
         self.pendingInviteStore = pendingInviteStore
         self.pendingLeaveStore = pendingLeaveStore
+        self.pendingWelcomeStore = pendingWelcomeStore
+        self.settings = settings
         self.healthTracker = marmot.healthTracker
         self.displayName = displayName
 
@@ -99,6 +108,14 @@ final class GroupListViewModel: ObservableObject {
                 if let idx = self.groups.firstIndex(where: { $0.id == groupId }) {
                     self.groups[idx].hasUnread = true
                 }
+            }
+            .store(in: &cancellables)
+
+        // Track groups with pending admin actions (leave requests, etc.)
+        settings.$pendingLeaveRequests
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] requests in
+                self?.pendingAdminActionGroupIds = Set(requests.filter { !$0.value.isEmpty }.keys)
             }
             .store(in: &cancellables)
 
@@ -146,7 +163,10 @@ final class GroupListViewModel: ObservableObject {
                 hasUnread: hasUnread
             ))
         }
-        self.groups = items.filter { !pendingLeaveStore.contains($0.id) }
+        let pendingWelcomeIds = Set(pendingWelcomeStore.pendingWelcomes.map(\.mlsGroupId))
+        self.groups = items.filter {
+            !pendingLeaveStore.contains($0.id) && !pendingWelcomeIds.contains($0.id)
+        }
 
         // Clean up pending leaves for groups that no longer exist
         // (admin processed the removal).

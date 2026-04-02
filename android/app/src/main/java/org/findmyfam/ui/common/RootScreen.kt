@@ -211,7 +211,8 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
                         mls = viewModel.mls,
                         nicknameStore = viewModel.nicknameStore,
                         myPubkeyHex = viewModel.identity.publicKeyHex ?: "",
-                        pendingLeaveStore = viewModel.pendingLeaveStore
+                        pendingLeaveStore = viewModel.pendingLeaveStore,
+                        settings = viewModel.settings
                     )
                 }
 
@@ -264,6 +265,10 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
                     identity = viewModel.identity,
                     onExportKey = { navController.navigate(Routes.EXPORT_KEY) },
                     onImportKey = { navController.navigate(Routes.IMPORT_KEY) },
+                    onBurnIdentity = {
+                        viewModel.burnIdentity()
+                        navController.popBackStack(Routes.GROUP_LIST, inclusive = false)
+                    },
                     onBack = { navController.popBackStack() },
                     modifier = Modifier.fillMaxSize()
                 )

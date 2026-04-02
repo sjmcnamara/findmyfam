@@ -6,6 +6,43 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.9.4] — 2026-04-02
+
+### Security
+- **Welcome consent**: unsolicited group additions now require user approval; only Welcomes matching a pending invite are auto-accepted. Prevents forced group membership via direct addMember-by-npub
+- **Burn identity hardening**: old nsec is explicitly destroyed from Keychain / EncryptedSharedPreferences before the new key is written; MLS database files are overwritten with zeros before deletion; all residual UserDefaults / SharedPreferences data (chat timestamps, read timestamps, pending welcomes) is purged
+
+### Added
+- **Burn Identity**: new "Danger Zone" action in Advanced Settings generates a fresh Nostr keypair, tearing down all groups, messages, and cryptographic state (iOS & Android)
+- **Admin action badge**: small orange dot on the group icon when the admin has pending actions (e.g. leave request approval); clears automatically after processing (iOS & Android)
+- **Cancel stale invites**: users can now swipe-to-dismiss (iOS) or tap X (Android) on pending invites that were never accepted
+
+### Improved
+- **Create Group auto-focus**: keyboard opens automatically on the group name field when the Create Group sheet appears (iOS & Android)
+- **Welcome invite UI**: compact circular checkmark / X icons replace bulky bordered buttons for accept/decline on unsolicited group invitations
+- **Empty state polish**: restyled "No groups yet" screen with larger stacked buttons (iOS)
+
+### Fixed
+- **Pending-welcome groups hidden**: groups awaiting consent no longer appear as "Inactive" in the group list after pull-to-refresh (iOS & Android)
+- **QR scanner auto-dismiss**: scanning an npub QR in Add Member now dismisses the camera immediately instead of lingering (iOS & Android)
+- **Add Member tap targets** (iOS): fixed `.buttonStyle(.borderless)` and 44pt minimum touch targets so the QR and Add buttons don't steal each other's taps
+- **Map group filter** (iOS): groups with a pending leave request are now hidden from the map filter picker; selection auto-clears when a leave is requested
+- **Admin leave approval UX**: members requesting to leave now show a green "Approve" swipe action (iOS) or "Approve" button (Android) instead of the generic destructive remove gesture
+
+### Changed
+- **Version bump** — iOS 0.9.4 (build 14), Android 0.9.4 (versionCode 11)
+
+---
+
+## [0.9.3] — 2026-04-02
+
+### Security
+- **Commit/Welcome ordering** (MIP-02): commit events are now verified on the relay before the Welcome is sent, preventing state forks where a joiner processes a Welcome but other members can't fetch the corresponding commit
+- **Post-join self-update** (MIP-02): new members immediately rotate key material after joining a group, limiting the KeyPackage exposure window
+- **Gift-wrap retry expiry**: stale/unrecoverable gift-wrap event IDs are purged after one retry pass to prevent infinite retry spam
+
+---
+
 ## [0.9.2] — 2026-04-01
 
 ### Added

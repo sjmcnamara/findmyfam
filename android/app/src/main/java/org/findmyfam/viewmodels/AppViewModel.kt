@@ -31,6 +31,7 @@ class AppViewModel @Inject constructor(
     val nicknameStore: NicknameStore,
     val pendingInviteStore: PendingInviteStore,
     val pendingLeaveStore: PendingLeaveStore,
+    val pendingWelcomeStore: PendingWelcomeStore,
     val locationCache: LocationCache,
     val healthTracker: GroupHealthTracker,
     val locationService: LocationService,
@@ -236,33 +237,56 @@ class AppViewModel @Inject constructor(
      */
     fun replaceIdentity(nsec: String) {
         viewModelScope.launch {
-            // Stop everything
-            locationService.stopUpdating()
-            marmotService.stopSubscriptions()
-            relay.disconnect()
-
-            // Clear stores
-            nicknameStore.clearAll()
-            pendingInviteStore.removeAll()
-            pendingLeaveStore.removeAll()
-            locationCache.clear()
-
-            // Clear settings
-            settings.lastEventTimestamp = 0u
-            settings.processedEventIds.clear()
-            settings.pendingGiftWrapEventIds.clear()
-
-            // Reset MLS database
-            mls.resetDatabase()
-
-            // Import the new key
-            identity.importKey(nsec)
-
-            // Restart
-            didStart = false
-            _startupPhase.value = StartupPhase.SPLASH
-            onAppear()
+            replaceIdentityInternal(nsec)
         }
+    }
+
+    /**
+     * Destroy the current identity and all associated state, generate a
+     * fresh keypair, and restart. One-way operation.
+     */
+    fun burnIdentity() {
+        viewModelScope.launch {
+            val freshKeys = rust.nostr.sdk.Keys.generate()
+            val freshNsec = freshKeys.secretKey().toBech32()
+            settings.displayName = ""
+            replaceIdentityInternal(freshNsec)
+        }
+    }
+
+    private suspend fun replaceIdentityInternal(nsec: String) {
+        // Stop everything
+        locationService.stopUpdating()
+        marmotService.stopSubscriptions()
+        relay.disconnect()
+
+        // Clear stores
+        nicknameStore.clearAll()
+        pendingInviteStore.removeAll()
+        pendingLeaveStore.removeAll()
+        pendingWelcomeStore.removeAll()
+        locationCache.clear()
+
+        // Clear settings — including pendingLeaveRequests and chat timestamps
+        settings.lastEventTimestamp = 0u
+        settings.processedEventIds.clear()
+        settings.pendingGiftWrapEventIds.clear()
+        settings.pendingLeaveRequests = mutableMapOf()
+        settings.clearChatTimestamps()
+
+        // Reset MLS database — overwrites files with zeros before deletion
+        mls.resetDatabase()
+
+        // Destroy old key from encrypted storage before importing new one
+        identity.destroyCurrentKey()
+
+        // Import the new key
+        identity.importKey(nsec)
+
+        // Restart
+        didStart = false
+        _startupPhase.value = StartupPhase.SPLASH
+        onAppear()
     }
 
     override fun onCleared() {

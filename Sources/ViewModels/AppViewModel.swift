@@ -42,6 +42,9 @@ final class AppViewModel: ObservableObject {
     /// Tracks groups where the user requested to leave but admin hasn't processed removal yet.
     let pendingLeaveStore: PendingLeaveStore
 
+    /// Unsolicited Welcomes awaiting user consent before joining.
+    let pendingWelcomeStore: PendingWelcomeStore
+
     // MARK: - Pending Approval (v0.7)
 
     /// A member approval request received via `whistle://addmember/` deep link.
@@ -104,6 +107,7 @@ final class AppViewModel: ObservableObject {
         self.nicknameStore       = NicknameStore()
         self.pendingInviteStore  = PendingInviteStore()
         self.pendingLeaveStore   = PendingLeaveStore()
+        self.pendingWelcomeStore = PendingWelcomeStore()
 
         let cache = self.locationCache
         let settingsRef = self.settings
@@ -350,6 +354,7 @@ final class AppViewModel: ObservableObject {
         marmotService.nicknameStore = nicknameStore
         marmotService.pendingInviteStore = pendingInviteStore
         marmotService.pendingLeaveStore = pendingLeaveStore
+        marmotService.pendingWelcomeStore = pendingWelcomeStore
         marmotService.settings = settings
 
         // Load persisted groups from MDK database BEFORE publishing
@@ -387,6 +392,7 @@ final class AppViewModel: ObservableObject {
             mls: mls,
             pendingInviteStore: pendingInviteStore,
             pendingLeaveStore: pendingLeaveStore,
+            pendingWelcomeStore: pendingWelcomeStore,
             displayName: { [weak self] in self?.settings.displayName ?? "" }
         )
 
@@ -590,6 +596,7 @@ final class AppViewModel: ObservableObject {
         nicknameStore.clearAll()
         pendingInviteStore.removeAll()
         pendingLeaveStore.removeAll()
+        pendingWelcomeStore.removeAll()
         locationCache.clear()
 
         // 6. Reset identity-bound settings
@@ -598,24 +605,51 @@ final class AppViewModel: ObservableObject {
         settings.pendingLeaveRequests = [:]
         settings.pendingGiftWrapEventIds = []
 
-        // 7. Wipe MLS database and rotate the encryption key — groups are
-        //    cryptographically bound to the old identity's key material.
+        // 7. Clear residual UserDefaults data — chat/read timestamps used by
+        //    GroupListViewModel, and any Keychain fallback data.
+        UserDefaults.standard.removeObject(forKey: "groupLastReadTimestamps")
+        UserDefaults.standard.removeObject(forKey: "groupLastChatTimestamps")
+        UserDefaults.standard.removeObject(forKey: "fmf.keychain.fallback.org.findmyfam.nsec")
+        UserDefaults.standard.removeObject(forKey: "fmf.pendingWelcomes")
+
+        // 8. Wipe MLS database — overwrites files with zeros before deletion
+        //    to prevent recovery of MLS key material from disk.
         await mls.resetDatabase()
 
-        // 8. Import the new key
+        // 9. Destroy old key from Keychain before importing new one.
+        //    This ensures the old nsec is explicitly deleted, not just overwritten.
+        identity.destroyCurrentKey()
+
+        // 10. Import the new key
         try identity.importKey(nsec: nsec)
 
-        // 9. Seed display name for new identity
+        // 11. Seed display name for new identity
         if let pubkey = myPubkeyHex, !settings.displayName.isEmpty {
             nicknameStore.set(name: settings.displayName, for: pubkey)
         }
 
-        // 10. Re-wire Combine pipelines and restart.
+        // 12. Re-wire Combine pipelines and restart.
         forwardChildChanges()
         observeSettings()
         didStart = false
         startupPhase = .connecting
         await onAppear()
+    }
+
+    // MARK: - Burn Identity
+
+    /// Destroy the current identity and all associated state, then generate
+    /// a fresh keypair and restart. This is a one-way operation.
+    func burnIdentity() async throws {
+        // Generate a new key first so we have the nsec ready
+        let freshKeys = Keys.generate()
+        let freshNsec = try freshKeys.secretKey().toBech32()
+
+        // Clear the display name — this is a brand-new identity
+        settings.displayName = ""
+
+        // Reuse the full teardown + restart pipeline
+        try await replaceIdentity(withNsec: freshNsec)
     }
 
     // MARK: - Nickname Broadcasting

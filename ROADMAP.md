@@ -245,6 +245,28 @@ _Branding polish and dark mode support — released 2026-04-01_
 - **Dark mode setting**: three-way Appearance picker (System / Light / Dark) in Settings; iOS uses `preferredColorScheme`, Android overrides `isSystemInDarkTheme()` via reactive `StateFlow`
 - **Splash screen rebrand**: replaced SF Symbol / text-based splash with Whistle wordmark + zap icon PNG; simplified to a clean loader view on both platforms
 
+### v0.9.3 — Marmot Security Audit ✅
+_MIP-02 compliance — released 2026-04-02_
+
+- **Commit/Welcome ordering** (MIP-02): commit events are verified on relay before Welcome is sent, preventing state forks
+- **Post-join self-update** (MIP-02): new members immediately rotate key material after joining, limiting KeyPackage exposure window
+- **Gift-wrap retry expiry**: stale/unrecoverable gift-wrap event IDs purged after one retry pass
+
+### v0.9.4 — UX & Consent Fixes ✅
+_Quality-of-life fixes, welcome consent, burn hardening — released 2026-04-02_
+
+- **Welcome consent**: unsolicited group adds require user approval; only invite-matched Welcomes auto-accept
+- **Burn Identity**: Advanced Settings action to nuke identity, groups, and MLS state and start fresh; old key explicitly destroyed from secure storage, MLS DB files zero-filled before deletion, all residual data purged
+- **Admin action badge**: orange dot on group icon when leave approval is pending
+- **Cancel stale invites**: dismiss stuck pending invites from the group list
+- **Create Group auto-focus**: keyboard opens on group name field immediately
+- **Pending-welcome groups hidden**: groups awaiting consent filtered from list after refresh
+- **Welcome invite UI**: compact checkmark / X icons for accept/decline
+- **QR scanner auto-dismiss**: camera closes after scanning an npub
+- **Add Member tap targets** (iOS): `.buttonStyle(.borderless)` + 44pt min frames prevent mis-taps
+- **Map filter** (iOS): pending-leave groups hidden from picker; auto-clears on leave request
+- **Admin leave approval**: green "Approve" action replaces generic swipe-to-delete
+
 ---
 
 ### v1.0 — Social & Connectivity
@@ -283,6 +305,8 @@ master
   └── feature/v0.9-mls-db-encryption   ✅ merged
   └── feature/v0.9.1-settings-split    ✅ merged
   └── feature/v0.9.2-splash-appearance ✅ merged
+  └── security/v0.9.3-mip02-commit-ordering ✅ merged
+  └── feature/v0.9.4-ux-fixes            🔄 PR #34
   └── feature/v1.0-social-connectivity
 ```
 

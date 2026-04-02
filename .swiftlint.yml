@@ -1,0 +1,56 @@
+# SwiftLint configuration for Whistle
+# https://github.com/realm/SwiftLint
+
+included:
+  - Sources
+  - WhistleCore/Sources
+  - WhistleTests
+  - WhistleCore/Tests
+
+excluded:
+  - WhistleCore/.build
+  - android
+  - Resources
+
+# Start lenient — tighten over time
+disabled_rules:
+  - line_length
+  - function_body_length
+  - type_body_length
+  - file_length
+  - cyclomatic_complexity
+  - large_tuple
+  - force_cast
+  - force_try
+  - force_unwrapping
+  - todo
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - contains_over_filter_count
+  - discouraged_optional_boolean
+  - empty_collection_literal
+  - first_where
+  - last_where
+  - modifier_order
+  - redundant_nil_coalescing
+  - toggle_bool
+  - unavailable_function
+  - yoda_condition
+
+# Tweak thresholds
+identifier_name:
+  min_length:
+    warning: 2
+  excluded:
+    - id
+    - i
+    - x
+    - y
+
+nesting:
+  type_level: 3
+
+trailing_comma:
+  mandatory_comma: false
