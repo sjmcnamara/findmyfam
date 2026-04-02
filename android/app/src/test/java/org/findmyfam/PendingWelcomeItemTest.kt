@@ -2,9 +2,9 @@ package org.findmyfam
 
 import org.findmyfam.services.PendingWelcomeItem
 import org.json.JSONObject
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Test
 
 /**
  * JVM unit tests for the PendingWelcomeItem data class.
