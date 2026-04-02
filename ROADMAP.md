@@ -272,13 +272,13 @@ _Quality-of-life fixes, welcome consent, burn hardening — released 2026-04-02_
 ### v1.0 — Production Readiness
 _Relay polish, security hardening, code quality gates_
 
-- **Custom relay management**: add new relays, remove relays, validate URL format and test connectivity on add (iOS & Android); existing enable/disable toggles already work
-- **Relay dedup verification**: confirm event ID deduplication works correctly when subscribed to multiple relays; add structured logging to verify no duplicate processing
-- **Privacy audit**: systematic review — verify no metadata leakage (all group traffic via kind 445, member list never on relays, gift-wrap hides sender/recipient); document findings
-- **Secure Enclave-wrapped nsec** (iOS): encrypt the Nostr secret key with a Secure Enclave-derived AES key for hardware-bound protection at rest (secp256k1 incompatible with SE P-256; requires SE key wrapping approach). Android: verify Keystore-backed EncryptedSharedPreferences is hardware-backed on supported devices
-- **Android map filter parity**: hide pending-leave groups from map filter picker on Android (already done on iOS in v0.9.4)
-- **CI merge gate**: enable required status checks on master — all 5 CI jobs must pass before merge
-- **SwiftLint strict mode**: fix existing 72 warnings, enable `--strict` flag in CI
+- **Custom relay management** ✅: add/remove/toggle relays in Advanced Settings with URL validation, live disconnect/reconnect, per-relay connection status dots, dynamic Connection section (iOS & Android)
+- **Relay dedup verification** ✅: confirmed event ID deduplication via `processedEventIds` + MLS `PreviouslyFailed` + gift-wrap retry queue; added structured debug logging on both platforms
+- **Privacy audit** ✅: systematic review passed — no metadata leakage (all payloads MLS-encrypted via kind 445, member lists local-only, gift-wrap hides sender via ephemeral key, no `p`/`e` tags leak group members). Fixed: removed plaintext nsec UserDefaults fallback from KeychainService; MLS encryption mode already logged at startup
+- **Secure Enclave-wrapped nsec** ✅ (iOS): nsec AES-GCM encrypted with Secure Enclave P-256 ECDH-derived key; hardware-bound, auto-migrates plaintext nsec; simulator falls back to plain Keychain. Android: `MasterKey` now requests StrongBox backing; diagnostic log on startup
+- **Android map filter parity** ✅: pending-leave groups hidden from map filter picker (matching iOS v0.9.4)
+- **CI merge gate** ✅: required status checks enabled on master — all CI jobs must pass before merge
+- **SwiftLint strict mode** ✅: all 336 files clean, 0 violations; `--strict` flag enabled in CI
 
 ### Deferred
 - **Full SQLCipher activation**: remove `newMdkUnencrypted` fallback once MDK ships `set_default_store()` via UniFFI ([marmot-protocol/mdk#243](https://github.com/marmot-protocol/mdk/issues/243))
