@@ -1,5 +1,6 @@
 package org.findmyfam.ui.settings
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -11,15 +12,22 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.findmyfam.models.AppSettings
 import org.findmyfam.services.IdentityService
+import org.findmyfam.services.RelayService
+import org.findmyfam.shared.models.RelayConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdvancedSettingsScreen(
     settings: AppSettings,
     identity: IdentityService,
+    relayService: RelayService,
+    mlsReady: Boolean = false,
+    mlsError: String? = null,
+    onReconnectRelays: () -> Unit = {},
     onExportKey: () -> Unit = {},
     onImportKey: () -> Unit = {},
     onBurnIdentity: () -> Unit = {},
@@ -29,6 +37,12 @@ fun AdvancedSettingsScreen(
     var appLockEnabled by remember { mutableStateOf(settings.isAppLockEnabled) }
     var rotationDays by remember { mutableIntStateOf(settings.keyRotationIntervalDays) }
     var showBurnConfirm by remember { mutableStateOf(false) }
+    var relays by remember { mutableStateOf(settings.relays) }
+    var showAddRelay by remember { mutableStateOf(false) }
+    var newRelayURL by remember { mutableStateOf("wss://") }
+    var relayError by remember { mutableStateOf<String?>(null) }
+    val relayConnectionState by relayService.connectionState.collectAsState()
+    val connectedRelayUrls by relayService.connectedRelayUrls.collectAsState()
 
     Scaffold(
         topBar = {
@@ -118,27 +132,89 @@ fun AdvancedSettingsScreen(
             // Relays
             SectionHeader("Relays")
 
-            for (relay in settings.relays) {
+            val defaultRelayUrls = AppSettings.defaultRelays.map { it.url }.toSet()
+
+            for (relay in relays) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Cloud,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    // Connection status dot
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .padding(end = 0.dp)
+                    ) {
+                        val dotColor = if (relay.isEnabled && relay.url in connectedRelayUrls)
+                            Color(0xFF4CAF50) // green
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawCircle(color = dotColor)
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = relay.url,
+                        text = relay.url.replace("wss://", ""),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    // Remove button for custom (non-default) relays
+                    if (relay.url !in defaultRelayUrls) {
+                        IconButton(
+                            onClick = {
+                                val updated = relays.filter { it.id != relay.id }
+                                relays = updated
+                                settings.relays = updated
+                                onReconnectRelays()
+                            },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Close,
+                                contentDescription = "Remove",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = relay.isEnabled,
+                        onCheckedChange = { enabled ->
+                            val updated = relays.map {
+                                if (it.id == relay.id) it.copy(isEnabled = enabled) else it
+                            }
+                            relays = updated
+                            settings.relays = updated
+                            onReconnectRelays()
+                        }
                     )
                 }
             }
+
+            // Add Relay button
+            TextButton(
+                onClick = {
+                    newRelayURL = "wss://"
+                    relayError = null
+                    showAddRelay = true
+                },
+                modifier = Modifier.padding(horizontal = 8.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Add Relay")
+            }
+
+            Text(
+                text = "Toggle relays on/off. Default relays cannot be removed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
 
             Divider(modifier = Modifier.padding(vertical = 8.dp))
 
@@ -149,10 +225,13 @@ fun AdvancedSettingsScreen(
                 label = "Relay",
                 icon = Icons.Default.Wifi,
                 trailing = {
-                    Text(
-                        text = "Connected",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    val (statusText, statusColor) = when (relayConnectionState) {
+                        RelayService.ConnectionState.DISCONNECTED -> "Disconnected" to MaterialTheme.colorScheme.onSurfaceVariant
+                        RelayService.ConnectionState.CONNECTING -> "Connecting…" to Color(0xFFFF9800)
+                        RelayService.ConnectionState.CONNECTED -> "Connected" to Color(0xFF4CAF50)
+                        RelayService.ConnectionState.FAILED -> "Failed" to MaterialTheme.colorScheme.error
+                    }
+                    Text(text = statusText, color = statusColor)
                 }
             )
 
@@ -160,10 +239,13 @@ fun AdvancedSettingsScreen(
                 label = "MLS Crypto",
                 icon = Icons.Default.Shield,
                 trailing = {
-                    Text(
-                        text = "Ready",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    if (mlsError != null) {
+                        Text(text = "Failed", color = MaterialTheme.colorScheme.error)
+                    } else if (mlsReady) {
+                        Text(text = "Ready", color = Color(0xFF4CAF50))
+                    } else {
+                        Text(text = "Starting…", color = Color(0xFFFF9800))
+                    }
                 }
             )
 
@@ -195,6 +277,70 @@ fun AdvancedSettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    if (showAddRelay) {
+        AlertDialog(
+            onDismissRequest = { showAddRelay = false },
+            title = { Text("Add Relay") },
+            text = {
+                Column {
+                    if (relayError != null) {
+                        Text(
+                            text = relayError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "Enter the WebSocket URL of the relay.",
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                    OutlinedTextField(
+                        value = newRelayURL,
+                        onValueChange = { newRelayURL = it },
+                        label = { Text("wss://relay.example.com") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val url = newRelayURL.trim().lowercase()
+                        when {
+                            !url.startsWith("wss://") && !url.startsWith("ws://") -> {
+                                relayError = "URL must start with wss:// or ws://"
+                            }
+                            url.length <= 6 -> {
+                                relayError = "Invalid URL format"
+                            }
+                            relays.any { it.url == url } -> {
+                                relayError = "Relay already exists"
+                            }
+                            else -> {
+                                val updated = relays + RelayConfig(url = url)
+                                relays = updated
+                                settings.relays = updated
+                                showAddRelay = false
+                                onReconnectRelays()
+                            }
+                        }
+                    }
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddRelay = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     if (showBurnConfirm) {

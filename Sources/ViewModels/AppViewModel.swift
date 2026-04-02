@@ -652,6 +652,20 @@ final class AppViewModel: ObservableObject {
         try await replaceIdentity(withNsec: freshNsec)
     }
 
+    // MARK: - Relay Reconnect
+
+    /// Disconnect and reconnect to relays using the current settings.
+    /// Called when the user toggles, adds, or removes relays.
+    func reconnectRelays() async {
+        guard let keys = identity.keys else {
+            FMFLogger.relay.warning("Cannot reconnect — no identity keys")
+            return
+        }
+        await relay.disconnect()
+        let enabled = settings.relays.filter(\.isEnabled)
+        await relay.connect(keys: keys, relays: enabled)
+    }
+
     // MARK: - Nickname Broadcasting
 
     /// Send the user's display name to every active group so other members

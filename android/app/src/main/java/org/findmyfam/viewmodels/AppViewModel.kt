@@ -209,6 +209,22 @@ class AppViewModel @Inject constructor(
     }
 
     /**
+     * Disconnect and reconnect to relays using current settings.
+     * Called when the user toggles, adds, or removes relays.
+     */
+    fun reconnectRelays() {
+        viewModelScope.launch {
+            val keys = identity.keys.value ?: run {
+                Timber.w("Cannot reconnect — no identity keys")
+                return@launch
+            }
+            relay.disconnect()
+            val enabledRelays = settings.relays.filter { it.isEnabled }.map { it.url }
+            relay.connect(keys = keys, relays = enabledRelays)
+        }
+    }
+
+    /**
      * Broadcast display name to all active groups.
      * Called from Settings when the user changes their name.
      */
