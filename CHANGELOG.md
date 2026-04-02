@@ -6,6 +6,19 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [0.9.4] — 2026-04-02
+
+### Fixed
+- **QR scanner auto-dismiss**: scanning an npub QR in Add Member now dismisses the camera immediately instead of lingering
+- **Add Member tap target**: split the npub text field + QR button from the Add button into separate rows to prevent accidental camera launches on iOS
+- **Map group filter**: groups with a pending leave request are now hidden from the map filter picker; selection auto-clears when a leave is requested
+- **Admin leave approval UX**: members requesting to leave now show a green "Approve" swipe action (iOS) or "Approve" button (Android) instead of the generic destructive remove gesture
+
+### Changed
+- **Version bump** — iOS 0.9.4 (build 14), Android 0.9.4 (versionCode 11)
+
+---
+
 ## [0.9.2] — 2026-04-01
 
 ### Added

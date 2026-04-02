@@ -245,6 +245,21 @@ _Branding polish and dark mode support — released 2026-04-01_
 - **Dark mode setting**: three-way Appearance picker (System / Light / Dark) in Settings; iOS uses `preferredColorScheme`, Android overrides `isSystemInDarkTheme()` via reactive `StateFlow`
 - **Splash screen rebrand**: replaced SF Symbol / text-based splash with Whistle wordmark + zap icon PNG; simplified to a clean loader view on both platforms
 
+### v0.9.3 — Marmot Security Audit ✅
+_MIP-02 compliance — released 2026-04-02_
+
+- **Commit/Welcome ordering** (MIP-02): commit events are verified on relay before Welcome is sent, preventing state forks
+- **Post-join self-update** (MIP-02): new members immediately rotate key material after joining, limiting KeyPackage exposure window
+- **Gift-wrap retry expiry**: stale/unrecoverable gift-wrap event IDs purged after one retry pass
+
+### v0.9.4 — UX Fixes ✅
+_Quality-of-life fixes — released 2026-04-02_
+
+- **QR scanner auto-dismiss**: camera dismisses immediately after scanning an npub
+- **Add Member layout**: split text field + QR from Add button to prevent mis-taps
+- **Map filter**: pending-leave groups hidden from picker; selection auto-clears
+- **Admin leave approval**: explicit green "Approve" action replaces generic swipe-to-delete for leave requests
+
 ---
 
 ### v1.0 — Social & Connectivity
@@ -283,6 +298,8 @@ master
   └── feature/v0.9-mls-db-encryption   ✅ merged
   └── feature/v0.9.1-settings-split    ✅ merged
   └── feature/v0.9.2-splash-appearance ✅ merged
+  └── security/v0.9.3-mip02-commit-ordering ✅ merged
+  └── feature/v0.9.4-ux-fixes            ✅ merged
   └── feature/v1.0-social-connectivity
 ```
 
