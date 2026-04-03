@@ -1,31 +1,37 @@
 # Whistle
 
-An open-source, decentralized location sharing app powered by Nostr, MLS and the Marmot Protocol.
-
 > Marmots are deeply social animals that form tight-knit family networks. They communicate through whistling, watch out for each other, and work together to keep their kin safe — no matter how far apart they roam.
 
-Whistle is a private group network built on the same instinct — stay connected, share your location, and communicate securely with the people who matter most. 
+Most location-sharing apps route your real-time movements through servers that store, analyse, and monetise your patterns. They require accounts, phone numbers, and emails — turning a simple "are you home safe?" into permanent surveillance infrastructure you didn't ask for.
 
-End-to-end encrypted. No accounts. No servers. No one else involved.
+Whistle takes the opposite approach. It's a private, encrypted group network built on the same instinct as its namesake — stay connected, share your location, and look out for each other. No server, no account, no one in the middle.
 
-Just your circle.
+Share your location because it's useful right now, with these people. Stop because the moment passed.
+
+## Who it's for
+
+**The family circle** — quiet reassurance that someone got home safe, or is on their way, without the ping of a constant text. No history being archived. Shared in the moment, then gone.
+
+**The festival crew** — find each other across four stages without the endless "where are you?" chain. No need to swap numbers with everyone or install a 200MB official app. Group evaporates Monday morning.
+
+**The late walk home** — temporary visibility while you're in a taxi or crossing an unfamiliar city. The digital equivalent of "text me when you're home" — without handing your data to a platform.
+
+**The school trip** — lightweight coordination for teachers and small groups splitting off, without turning the day into a surveillance exercise.
 
 ## What it does
 
-Family members create or join a shared encrypted group. Each member periodically posts their location to the group. Everyone in the group can see each other on a live map.
-
-All communication is end-to-end encrypted using MLS (Messaging Layer Security, RFC 9420) and transported over the Nostr protocol via the [Marmot Protocol](https://github.com/marmot-protocol/marmot) event kinds. No relay ever sees plaintext location data or group membership.
+Create or join an encrypted group, share a live map with your people, and chat — all end-to-end encrypted. No relay ever sees plaintext location data or group membership.
 
 - **Family groups** — create or join with a shareable invite code
-- **Cross-platform** — native iOS and Android apps that interop seamlessly in the same encrypted groups
-- **Tap-to-join** — share invites via AirDrop, QR code scan, or NFC tap; one-tap admin approval
-- **Live map** — see all family members' locations, updated on a configurable interval (default: 1 hr)
-- **Group chat** — built-in encrypted chat for the whole family
+- **Live map** — see everyone's location, updated on a configurable interval
+- **Group chat** — built-in encrypted messaging for the whole group
+- **Tap-to-join** — share invites via QR code, NFC tap, or AirDrop
 - **Pause/resume** — stop sharing your location anytime without leaving the group
 - **Low-battery mode** — automatically reduces update frequency when battery is low
-- **Multiple groups** — join more than one family group
+- **Multiple groups** — belong to more than one circle at a time
+- **Cross-platform** — native iOS and Android apps that interop seamlessly
 - **No accounts** — identity is a Nostr keypair stored on-device
-- **Open protocol** — built on Nostr + MLS; no proprietary server, no lock-in
+- **Open protocol** — built on [Nostr](https://nostr.com) + [MLS](https://www.rfc-editor.org/rfc/rfc9420.html) via the [Marmot Protocol](https://github.com/marmot-protocol/marmot); no proprietary server, no lock-in
 
 ## Security Model
 
