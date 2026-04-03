@@ -5,6 +5,7 @@
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/sjmcnamara/whistle/badge)](https://scorecard.dev/viewer/?uri=github.com/sjmcnamara/whistle)
 [![codecov](https://codecov.io/gh/sjmcnamara/whistle/graph/badge.svg?token=CODECOV_TOKEN)](https://codecov.io/gh/sjmcnamara/whistle)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-lightgrey)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 > Marmots are deeply social animals that form tight-knit family networks. They communicate through whistling, watch out for each other, and work together to keep their kin safe — no matter how far apart they roam.
 
