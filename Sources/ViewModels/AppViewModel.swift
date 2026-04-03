@@ -174,6 +174,19 @@ final class AppViewModel: ObservableObject {
             }
             .store(in: &cancellables)
 
+        // When the fuzz setting changes, reset the throttle so the very next
+        // CoreLocation update broadcasts the corrected (or restored accurate)
+        // position immediately rather than waiting out the remaining interval.
+        settings.$locationFuzzMeters
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.locationService.resetThrottle()
+                FMFLogger.location.info("Fuzz setting changed, throttle reset for immediate rebroadcast")
+            }
+            .store(in: &cancellables)
+
         // When location authorization changes (user taps "Enable Location"
         // in Settings), re-apply the pause setting so updates actually start.
         locationService.$authorizationStatus

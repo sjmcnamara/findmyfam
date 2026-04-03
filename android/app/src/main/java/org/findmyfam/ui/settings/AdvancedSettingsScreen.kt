@@ -28,6 +28,7 @@ fun AdvancedSettingsScreen(
     mlsReady: Boolean = false,
     mlsError: String? = null,
     onReconnectRelays: () -> Unit = {},
+    onFuzzSettingChanged: () -> Unit = {},
     onExportKey: () -> Unit = {},
     onImportKey: () -> Unit = {},
     onBurnIdentity: () -> Unit = {},
@@ -157,6 +158,7 @@ fun AdvancedSettingsScreen(
                                 onClick = {
                                     fuzzMeters = meters
                                     settings.locationFuzzMeters = meters
+                                    onFuzzSettingChanged()
                                     fuzzExpanded = false
                                 }
                             )

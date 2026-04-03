@@ -269,6 +269,7 @@ private fun MainNavigationScaffold(viewModel: AppViewModel) {
                     mlsReady = viewModel.mls.isInitialised,
                     mlsError = mlsError,
                     onReconnectRelays = { viewModel.reconnectRelays() },
+                    onFuzzSettingChanged = { viewModel.locationService.resetThrottle() },
                     onExportKey = { navController.navigate(Routes.EXPORT_KEY) },
                     onImportKey = { navController.navigate(Routes.IMPORT_KEY) },
                     onBurnIdentity = {
