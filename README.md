@@ -1,5 +1,7 @@
 # Whistle
 
+[![codecov](https://codecov.io/gh/sjmcnamara/whistle/graph/badge.svg?token=CODECOV_TOKEN)](https://codecov.io/gh/sjmcnamara/whistle)
+
 > Marmots are deeply social animals that form tight-knit family networks. They communicate through whistling, watch out for each other, and work together to keep their kin safe — no matter how far apart they roam.
 
 Most location-sharing apps route your real-time movements through servers that store, analyse, and monetise your patterns. They require accounts, phone numbers, and emails — turning a simple "are you home safe?" into permanent surveillance infrastructure you didn't ask for.

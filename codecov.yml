@@ -1,0 +1,33 @@
+coverage:
+  status:
+    project:
+      default:
+        # Informational only — no PR block
+        informational: true
+    patch:
+      default:
+        # Informational only — no PR block
+        informational: true
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: default        # post once, update on new commits
+  require_changes: true    # only comment if coverage actually changed
+
+flags:
+  ios:
+    paths:
+      - Sources/
+      - WhistleTests/
+    carryforward: true     # keep last result if job didn't run
+  whistlecore:
+    paths:
+      - WhistleCore/Sources/
+    carryforward: true
+
+ignore:
+  - "**/*Tests*"
+  - "**/*.generated.swift"
+  - "android/"
+  - "WhistleCore/.build/"
+  - "*.xcresult"
