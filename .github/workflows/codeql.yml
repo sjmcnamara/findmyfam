@@ -29,17 +29,22 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # ── Swift: install tooling BEFORE CodeQL init ─
+      # brew install fails under Rosetta after CodeQL modifies the shell
+      # environment for Swift tracing, so xcodegen must be installed first.
+      - name: Install xcodegen (Swift)
+        if: matrix.language == 'swift'
+        run: brew install xcodegen
+
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
 
       # ── Swift ────────────────────────────────────
       - name: Generate Xcode project (Swift)
         if: matrix.language == 'swift'
-        run: |
-          brew install xcodegen
-          xcodegen generate
+        run: xcodegen generate
 
       - name: Build (Swift)
         if: matrix.language == 'swift'
@@ -65,6 +70,6 @@ jobs:
 
       # ── Analysis ─────────────────────────────────
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
