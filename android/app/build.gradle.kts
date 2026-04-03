@@ -4,6 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
+    id("jacoco")
 }
 
 android {
@@ -14,8 +15,8 @@ android {
         applicationId = "org.findmyfam"
         minSdk = 26
         targetSdk = 34
-        versionCode = 12
-        versionName = "1.0.0"
+        versionCode = 13
+        versionName = "1.0.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -43,6 +44,43 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required.set(true)
+        html.required.set(false)
+    }
+
+    // Kotlin class files compiled for debug
+    classDirectories.setFrom(
+        fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug") {
+            exclude(
+                // Hilt generated
+                "**/hilt_aggregated_deps/**",
+                "**/*_HiltComponents*",
+                "**/*_MembersInjector*",
+                "**/*_Factory*",
+                "**/Dagger*Component*",
+                // Android generated
+                "**/R.class",
+                "**/R$*.class",
+                "**/BuildConfig.*",
+                // Compose generated
+                "**/*ComposableSingletons*",
+                "**/*\$*Preview*",
+            )
+        }
+    )
+
+    sourceDirectories.setFrom(files("src/main/java", "src/main/kotlin"))
+    executionData.setFrom(
+        fileTree(layout.buildDirectory.get()) {
+            include("jacoco/testDebugUnitTest.exec")
+        }
+    )
 }
 
 dependencies {
