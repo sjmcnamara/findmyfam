@@ -4,7 +4,6 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.dagger.hilt.android")
     id("com.google.devtools.ksp")
-    id("jacoco")
 }
 
 android {
@@ -50,45 +49,6 @@ android {
     }
 }
 
-tasks.register<JacocoReport>("jacocoTestReport") {
-    dependsOn("testDebugUnitTest")
-
-    reports {
-        xml.required.set(true)
-        html.required.set(false)
-    }
-
-    // Kotlin class files compiled for debug
-    classDirectories.setFrom(
-        fileTree("${layout.buildDirectory.get()}/tmp/kotlin-classes/debug") {
-            exclude(
-                // Hilt generated
-                "**/hilt_aggregated_deps/**",
-                "**/*_HiltComponents*",
-                "**/*_MembersInjector*",
-                "**/*_Factory*",
-                "**/Dagger*Component*",
-                // Android generated
-                "**/R.class",
-                "**/R$*.class",
-                "**/BuildConfig.*",
-                // Compose generated
-                "**/*ComposableSingletons*",
-                "**/*\$*Preview*",
-            )
-        }
-    )
-
-    sourceDirectories.setFrom(files("src/main/java", "src/main/kotlin"))
-    executionData.setFrom(
-        fileTree(layout.buildDirectory.get()) {
-            // AGP 8.x with enableUnitTestCoverage writes here
-            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
-            // Fallback for standalone Jacoco plugin path
-            include("jacoco/testDebugUnitTest.exec")
-        }
-    )
-}
 
 dependencies {
     // Shared core library

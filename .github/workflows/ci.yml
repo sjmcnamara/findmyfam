@@ -138,12 +138,12 @@ jobs:
 
       - name: Generate coverage report
         working-directory: android
-        run: ./gradlew :app:jacocoTestReport
+        run: ./gradlew :app:createDebugUnitTestCoverageReport
 
       - uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe  # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: android/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          files: android/app/build/reports/coverage/test/debug/report.xml
           flags: android
           fail_ci_if_error: false
 
