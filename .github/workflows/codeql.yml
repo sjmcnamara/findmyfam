@@ -27,7 +27,7 @@ jobs:
             runner: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
 
       # ── Swift: install tooling BEFORE CodeQL init ─
       # brew install fails under Rosetta after CodeQL modifies the shell
@@ -37,7 +37,7 @@ jobs:
         run: brew install xcodegen
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@c10b8064de6f491fea524254123dbe5e09572f13  # v4
         with:
           languages: ${{ matrix.language }}
 
@@ -58,7 +58,7 @@ jobs:
       # ── Kotlin ───────────────────────────────────
       - name: Set up Java (Kotlin)
         if: matrix.language == 'kotlin'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654  # v5
         with:
           distribution: temurin
           java-version: 17
@@ -70,6 +70,6 @@ jobs:
 
       # ── Analysis ─────────────────────────────────
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@c10b8064de6f491fea524254123dbe5e09572f13  # v4
         with:
           category: "/language:${{ matrix.language }}"
