@@ -1,10 +1,11 @@
 import Foundation
 
 /// Apply a random offset to a coordinate within `radiusMeters`.
-/// Uses a uniform random bearing and distance for a circular (not Gaussian) distribution.
+/// Uses a uniform random bearing and area-uniform distance for a circular (not Gaussian) distribution.
 func fuzzedCoordinate(latitude: Double, longitude: Double, radiusMeters: Double) -> (lat: Double, lon: Double) {
     let bearing = Double.random(in: 0..<2 * .pi)
-    let distance = Double.random(in: 0...radiusMeters)
+    let u = Double.random(in: 0..<1)
+    let distance = sqrt(u) * radiusMeters
     return offsetCoordinate(latitude: latitude, longitude: longitude, bearing: bearing, distance: distance)
 }
 
