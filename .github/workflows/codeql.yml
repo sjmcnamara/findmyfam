@@ -1,0 +1,70 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: '0 8 * * 1'  # Every Monday 08:00 UTC
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: swift
+            runner: macos-15
+          - language: kotlin
+            runner: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      # ── Swift ────────────────────────────────────
+      - name: Generate Xcode project (Swift)
+        if: matrix.language == 'swift'
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build (Swift)
+        if: matrix.language == 'swift'
+        run: |
+          xcodebuild build \
+            -project Whistle.xcodeproj \
+            -scheme Whistle \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO
+
+      # ── Kotlin ───────────────────────────────────
+      - name: Set up Java (Kotlin)
+        if: matrix.language == 'kotlin'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Build (Kotlin)
+        if: matrix.language == 'kotlin'
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      # ── Analysis ─────────────────────────────────
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
