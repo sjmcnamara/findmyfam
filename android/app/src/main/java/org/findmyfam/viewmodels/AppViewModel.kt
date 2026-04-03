@@ -221,7 +221,7 @@ class AppViewModel @Inject constructor(
                 lat = lat,
                 lon = lon,
                 alt = location.altitude,
-                acc = if (fuzzRadius > 0) fuzzRadius.toDouble() else location.accuracy.toDouble(),
+                acc = if (fuzzRadius > 0) max(location.accuracy.toDouble(), fuzzRadius.toDouble()) else location.accuracy.toDouble(),
                 ts = System.currentTimeMillis() / 1000
             )
             val myPubkey = identity.publicKeyHex ?: return
