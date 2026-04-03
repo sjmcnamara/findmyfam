@@ -40,7 +40,7 @@ jobs:
             echo "Coverage data not found — skipping"
           fi
 
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: WhistleCore/coverage.lcov
@@ -79,7 +79,7 @@ jobs:
         run: |
           xcrun xccov view --report --json TestResults.xcresult > coverage.json
 
-      - uses: codecov/codecov-action@v4
+      - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.json
@@ -154,4 +154,4 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/dependency-review-action@v4
+      - uses: actions/dependency-review-action@v5
