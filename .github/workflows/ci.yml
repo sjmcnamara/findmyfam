@@ -28,7 +28,7 @@ jobs:
         run: |
           BIN_PATH=$(swift build --show-bin-path 2>/dev/null)
           PROFDATA="${BIN_PATH}/codecov/default.profdata"
-          BUNDLE=$(find "${BIN_PATH}" -name "*.xctest" -maxdepth 1 2>/dev/null | head -1)
+          BUNDLE=$(find "${BIN_PATH}" -name "*.xctest" -print -quit 2>/dev/null)
           if [ -f "$PROFDATA" ] && [ -n "$BUNDLE" ]; then
             EXEC="${BUNDLE}/Contents/MacOS/$(basename "${BUNDLE}" .xctest)"
             xcrun llvm-cov export "$EXEC" \
