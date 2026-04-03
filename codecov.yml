@@ -24,10 +24,16 @@ flags:
     paths:
       - WhistleCore/Sources/
     carryforward: true
+  android:
+    paths:
+      - android/app/src/main/
+    carryforward: true
 
 ignore:
   - "**/*Tests*"
   - "**/*.generated.swift"
-  - "android/"
   - "WhistleCore/.build/"
   - "*.xcresult"
+  - "android/**/hilt_aggregated_deps/**"
+  - "android/**/*_HiltComponents*"
+  - "android/**/*_Factory*"

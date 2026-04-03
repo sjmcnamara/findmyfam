@@ -125,6 +125,17 @@ jobs:
         working-directory: android
         run: ./gradlew :app:testDebugUnitTest
 
+      - name: Generate coverage report
+        working-directory: android
+        run: ./gradlew :app:jacocoTestReport
+
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: android/app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          flags: android
+          fail_ci_if_error: false
+
       - name: Upload test results
         uses: actions/upload-artifact@v7
         if: failure()
