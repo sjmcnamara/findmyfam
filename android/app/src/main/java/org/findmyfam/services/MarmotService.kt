@@ -209,25 +209,58 @@ class MarmotService @Inject constructor(
      * gift-wrap the welcome, and publish group evolution events.
      */
     suspend fun addMember(pubkeyHex: String, groupId: String, maxRetries: Int = 10) {
+        // Pre-flight: don't add yourself
+        if (pubkeyHex == publicKeyHex) {
+            throw MarmotException("Cannot add yourself to a group")
+        }
+
+        // Pre-flight: check if member is already in the group
+        try {
+            val existingMembers = mls.getMembers(groupId)
+            if (pubkeyHex in existingMembers) {
+                throw MarmotException("Member is already in this group")
+            }
+        } catch (e: MarmotException) {
+            throw e // re-throw our own exceptions
+        } catch (e: Exception) {
+            Timber.w("Could not check existing members (non-fatal): ${e.message}")
+        }
+
+        // Pre-flight: verify relay connectivity
+        if (relay.connectedRelayUrls.value.isEmpty()) {
+            throw MarmotException("Not connected to any relay — check your connection")
+        }
+
         val startTime = System.currentTimeMillis()
         val globalTimeout = 60_000L
 
-        // 1. Fetch the member's key package with retry
+        // 1. Fetch the member's key package with retry.
+        //    The invitee's key package may not have propagated yet (especially
+        //    after scanning an invite code where the publish is deferred).
+        Timber.i("Fetching key package for ${pubkeyHex.take(8)}… from ${relay.connectedRelayUrls.value.size} relay(s)")
         var kpEvents: List<Event> = emptyList()
         for (attempt in 1..maxRetries) {
             if (System.currentTimeMillis() - startTime > globalTimeout) {
-                throw MarmotException("Operation timed out")
+                throw MarmotException("Operation timed out — could not find key package for this member. Ask them to re-open the app and try again.")
             }
-            kpEvents = fetchKeyPackage(pubkeyHex)
-            if (kpEvents.isNotEmpty()) break
+            try {
+                kpEvents = fetchKeyPackage(pubkeyHex)
+            } catch (e: Exception) {
+                Timber.w("fetchKeyPackage attempt $attempt failed: ${e.message}")
+                // Continue retrying — relay may be temporarily unavailable
+            }
+            if (kpEvents.isNotEmpty()) {
+                Timber.i("Found key package for ${pubkeyHex.take(8)}… on attempt $attempt")
+                break
+            }
             if (attempt < maxRetries) {
                 val backoff = min(0.5 * 2.0.pow((attempt - 1).toDouble()), 30.0)
-                Timber.i("Key package not found for $pubkeyHex (attempt $attempt/$maxRetries) -- retrying in $backoff s")
+                Timber.i("Key package not found for ${pubkeyHex.take(8)}… (attempt $attempt/$maxRetries) -- retrying in $backoff s")
                 delay((backoff * 1000).toLong())
             }
         }
         val kpEvent = kpEvents.firstOrNull()
-            ?: throw MarmotException("No key package found for $pubkeyHex")
+            ?: throw MarmotException("No key package found for this member. Make sure they have the app open and are connected to the same relay.")
         val kpJson = kpEvent.asJson()
 
         // 2. MLS addMembers
