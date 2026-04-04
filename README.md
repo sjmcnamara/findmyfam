@@ -101,4 +101,4 @@ v1.0 — Production ready. iOS and Android. See [ROADMAP.md](ROADMAP.md) for ful
 
 ## Wiki
 
-Project operational docs live in [docs/wiki/Home.md](docs/wiki/Home.md
+Project operational docs live in [docs/wiki/Home.md](docs/wiki/Home.md)
