@@ -235,6 +235,22 @@ final class MarmotService: ObservableObject {
     /// Add a member to a group: fetch their key package, run MLS addMembers,
     /// gift-wrap the welcome, and publish group evolution events.
     func addMember(publicKeyHex memberHex: String, toGroup groupId: String, maxRetries: Int = 10) async throws {
+        // Pre-flight: don't add yourself
+        guard memberHex != publicKeyHex else {
+            throw MarmotError.alreadyMember
+        }
+
+        // Pre-flight: check if member is already in the group
+        if let existingMembers = try? await mls.getMembers(groupId: groupId),
+           existingMembers.contains(memberHex) {
+            throw MarmotError.alreadyMember
+        }
+
+        // Pre-flight: verify relay connectivity
+        guard !relay.connectedRelayURLs.isEmpty else {
+            throw MarmotError.noRelaysConnected
+        }
+
         let startTime = Date()
         let globalTimeout: TimeInterval = 60.0
 
@@ -242,16 +258,26 @@ final class MarmotService: ObservableObject {
         //    Retry with exponential backoff — the invitee's key package may not have
         //    propagated to the relay yet (especially via NearbyShare where
         //    the key package publish is deferred until after MPC tears down).
+        let relayCount = relay.connectedRelayURLs.count
+        FMFLogger.marmot.info("Fetching key package for \(memberHex.prefix(8))… from \(relayCount) relay(s)")
         var kpEvents: [Event] = []
         for attempt in 1...maxRetries {
             if Date().timeIntervalSince(startTime) > globalTimeout {
                 throw MarmotError.timeout
             }
-            kpEvents = try await fetchKeyPackage(for: memberHex)
-            if !kpEvents.isEmpty { break }
+            do {
+                kpEvents = try await fetchKeyPackage(for: memberHex)
+            } catch {
+                FMFLogger.marmot.warning("fetchKeyPackage attempt \(attempt) failed: \(error)")
+                // Continue retrying — relay may be temporarily unavailable
+            }
+            if !kpEvents.isEmpty {
+                FMFLogger.marmot.info("Found key package for \(memberHex.prefix(8))… on attempt \(attempt)")
+                break
+            }
             if attempt < maxRetries {
                 let delay = min(0.5 * pow(2.0, Double(attempt - 1)), 30.0)
-                FMFLogger.marmot.info("Key package not found for \(memberHex) (attempt \(attempt)/\(maxRetries)) — retrying in \(delay) s")
+                FMFLogger.marmot.info("Key package not found for \(memberHex.prefix(8))… (attempt \(attempt)/\(maxRetries)) — retrying in \(delay) s")
                 try await Task.sleep(for: .seconds(delay))
             }
         }
@@ -953,15 +979,21 @@ final class MarmotService: ObservableObject {
         case noKeyPackageFound(String)
         case timeout
         case commitVerificationFailed
+        case alreadyMember
+        case noRelaysConnected
 
         var errorDescription: String? {
             switch self {
-            case .noKeyPackageFound(let hex):
-                return "No key package found for \(hex)"
+            case .noKeyPackageFound:
+                return "No key package found for this member. Make sure they have the app open and are connected to the same relay."
             case .timeout:
-                return "Operation timed out"
+                return "Operation timed out — could not find key package for this member. Ask them to re-open the app and try again."
             case .commitVerificationFailed:
                 return "Could not verify commit on relay — Welcome not sent to avoid state fork"
+            case .alreadyMember:
+                return "This person is already a member of the group"
+            case .noRelaysConnected:
+                return "Not connected to any relay — check your connection"
             }
         }
     }
