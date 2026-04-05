@@ -1,6 +1,7 @@
 import SwiftUI
 import LocalAuthentication
 import Security
+import WhistleCore
 
 @main
 struct FindMyFamApp: App {
@@ -8,6 +9,7 @@ struct FindMyFamApp: App {
     @StateObject private var appViewModel = AppViewModel()
     @StateObject private var appLockService = AppLockService(settings: AppSettings.shared)
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(AppDefaults.Keys.hasCompletedOnboarding) private var hasCompletedOnboarding = false
 
     var body: some Scene {
         WindowGroup {
@@ -22,6 +24,15 @@ struct FindMyFamApp: App {
                             removal: .opacity.animation(.easeOut(duration: 0.45))
                         ))
                         .zIndex(1)
+                }
+
+                if !hasCompletedOnboarding && appViewModel.startupPhase == .ready {
+                    OnboardingView(
+                        locationService: appViewModel.locationService,
+                        onComplete: { hasCompletedOnboarding = true }
+                    )
+                    .transition(.opacity.animation(.easeIn(duration: 0.3)))
+                    .zIndex(0.5)
                 }
 
                 if appLockService.isLocked {

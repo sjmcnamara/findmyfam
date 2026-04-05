@@ -280,14 +280,53 @@ _Relay polish, security hardening, code quality gates_
 - **CI merge gate** ✅: required status checks enabled on master — all CI jobs must pass before merge
 - **SwiftLint strict mode** ✅: all 336 files clean, 0 violations; `--strict` flag enabled in CI
 
-### v1.0.1 — UX Polish & Coverage
-_In progress_
+### v1.0.1 — UX Polish & Coverage ✅
+_Released 2026-04-03_
 
 - **Chat timestamps** (iOS): wall-clock time ("2:30 PM") instead of relative age — matches Android, Signal, WhatsApp
 - **"Load earlier messages" fix** (iOS): `hasMore` was not `@Published`; button now hidden correctly when all messages loaded
 - **Imprecise location fix** (iOS): payload stamped with broadcast time, not OS acquisition time; `horizontalAccuracy < 0` filtered before pipeline; pin label truncation fixed with `minimumScaleFactor`
 - **Location fuzzing** (iOS & Android): Off / 10 m / 50 m / 200 m random offset in Advanced Settings → Location Privacy
 - **Codecov coverage reporting**: informational-only upload on every CI run; `ios` and `whistlecore` flags for per-layer breakdown
+
+### v1.0.2 — Test Coverage & DB Stability ✅
+_Released 2026-04-05_
+
+- **Groups lost after force quit fix** (iOS): removed unconditional `deleteDatabase()` call in `MLSService` fallback path; unencrypted fallback now opens existing DB directly
+- **Protocol round-trip tests — Tier 1** (iOS): 27 tests covering group lifecycle, Welcome flow, message delivery (chat/location/nickname), key rotation, leave requests, invite codes, and subscription setup
+- **Failure & recovery tests — Tier 2** (iOS): 40 tests covering error handling, health tracker, corrupt events, message ordering/pagination, concurrent ops, identity lifecycle, MLS reset, and store deduplication
+- **Android unit tests**: 6 new test suites, 60 new tests (LocationFuzz, LocationViewModel, MemberSort, GroupListItem, ChatMessageItem, MemberAnnotation); total Android tests now 90
+- **Android coverage fix** (CI): switched to AGP built-in `createDebugUnitTestCoverageReport`; Codecov Android reporting now correct
+- **Codecov: exclude Compose UI**: `ui/`, `MainActivity`, `FindMyFamApp`, `di/` excluded from metrics
+
+---
+
+### v1.1.1 — Onboarding Flow ✅
+_First-run experience before location permission_
+
+- **Welcome carousel**: 3-card first-run screen explaining what Whistle is (encrypted location sharing, family groups, no accounts/servers) — shown once on cold start with no existing identity
+- **Permission framing screen**: dedicated screen with plain-language explanation before the `CLLocationAlwaysUsageDescription` system dialog fires
+- `hasCompletedOnboarding` flag in UserDefaults gates the flow
+- iOS + Android parity
+
+---
+
+### v1.1.2 — System Settings Deep Links
+_Surface settings shortcuts where the app hits permission walls_
+
+- **Location permission banner**: tapping links directly to iOS Settings > Privacy > Location / Android Location Settings
+- **Biometrics**: App Lock settings row links to Face ID & Passcode / Android Biometrics settings
+- iOS: `UIApplication.openSettingsURLString`; Android: `ACTION_APPLICATION_DETAILS_SETTINGS` / `ACTION_LOCATION_SOURCE_SETTINGS`
+
+---
+
+### v1.1.3 — Smart Location Intervals
+_Per-group intervals + motion-adaptive battery mode_
+
+- **Per-group update intervals**: each group stores its own interval in group metadata (kind 445 control message); slider in Group Detail UI replaces the global setting
+- **Motion-adaptive mode** (iOS): `CMMotionActivityManager` detects stationary state → backs off to 4× the configured interval; movement detected → resumes normal interval
+- **Motion-adaptive mode** (Android): `ActivityRecognitionClient` equivalent behaviour
+- Motion state feeds into the existing low-battery decision tree; per-group last-sent timestamps track independent publish cadence
 
 ### Deferred
 - **Full SQLCipher activation**: remove `newMdkUnencrypted` fallback once MDK ships `set_default_store()` via UniFFI ([marmot-protocol/mdk#243](https://github.com/marmot-protocol/mdk/issues/243))
@@ -322,7 +361,11 @@ master
   └── security/v0.9.3-mip02-commit-ordering ✅ merged
   └── feature/v0.9.4-ux-fixes            ✅ merged (PR #34)
   └── feature/v1.0-production-readiness  ✅ merged (PR #44)
-  └── feature/v1.0.1-ux-fixes
+  └── feature/v1.0.1-ux-fixes           ✅ merged
+  └── feature/v1.0.2-test-coverage
+  └── feature/v1.1.1-onboarding           ✅ merged
+  └── feature/v1.1.2-settings-deep-links
+  └── feature/v1.1.3-smart-location
 ```
 
 ---
