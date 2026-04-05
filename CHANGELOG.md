@@ -6,6 +6,16 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.1.0] — 2026-04-05
+
+### Added
+- **First-run onboarding flow** (iOS): three-card welcome carousel (encrypted, no accounts, background updates) shown once after the splash screen on a fresh install; followed by a permission-framing screen that explains location access before the system prompt fires; "Skip for now" defers location permission to Settings; `hasCompletedOnboarding` UserDefaults flag gates the flow permanently after first completion
+
+### Changed
+- **Version bump** — iOS 1.1.0 (build 18), Android 1.1.0 (versionCode 15)
+
+---
+
 ## [1.0.2] — 2026-04-05
 
 ### Fixed

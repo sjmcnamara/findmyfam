@@ -92,6 +92,11 @@ final class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(locationFuzzMeters, forKey: Keys.locationFuzzMeters) }
     }
 
+    /// Whether the user has completed the first-run onboarding flow.
+    @Published var hasCompletedOnboarding: Bool {
+        didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: Keys.hasCompletedOnboarding) }
+    }
+
     /// SwiftUI color scheme derived from the appearance preference.
     /// Returns `nil` for `.system` so the OS default is used.
     var colorScheme: ColorScheme? {
@@ -129,6 +134,7 @@ final class AppSettings: ObservableObject {
         self.keyRotationIntervalDays = UserDefaults.standard.integer(forKey: Keys.keyRotationIntervalDays)
             .nonZeroOr(AppDefaults.defaultKeyRotationIntervalDays)
         self.locationFuzzMeters = UserDefaults.standard.integer(forKey: Keys.locationFuzzMeters)
+        self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: Keys.hasCompletedOnboarding)
 
         if let data = UserDefaults.standard.data(forKey: Keys.processedEventIds),
            let decoded = try? JSONDecoder().decode(Set<String>.self, from: data) {
