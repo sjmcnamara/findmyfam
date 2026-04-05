@@ -1,6 +1,7 @@
 package org.findmyfam.services
 
 import build.marmot.mdk.Group
+import build.marmot.mdk.GroupDataUpdate
 import build.marmot.mdk.Message
 import build.marmot.mdk.ProcessMessageResult
 import kotlinx.coroutines.*
@@ -336,10 +337,19 @@ class MarmotService @Inject constructor(
     }
 
     /**
-     * Rename a group: update MLS metadata, merge, publish the evolution event.
+     * Rename a group: update MLS group metadata, merge, publish the evolution event.
      */
     suspend fun renameGroup(groupId: String, newName: String) {
-        val result = mls.selfUpdate(mlsGroupId = groupId)
+        val update = GroupDataUpdate(
+            name = newName,
+            description = null,
+            imageHash = null,
+            imageKey = null,
+            imageNonce = null,
+            relays = null,
+            admins = null
+        )
+        val result = mls.updateGroupData(mlsGroupId = groupId, update = update)
         mls.mergePendingCommit(mlsGroupId = groupId)
 
         val evolutionEventJson = result.evolutionEventJson

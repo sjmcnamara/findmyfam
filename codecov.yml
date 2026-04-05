@@ -1,9 +1,23 @@
 coverage:
   status:
     project:
+      # Disable the misleading blended total — it mixes three platforms
+      # whose source trees barely overlap, producing a meaningless number.
       default:
-        # Informational only — no PR block
         informational: true
+      # Per-flag project status — these are the numbers that matter.
+      ios:
+        informational: true
+        flags:
+          - ios
+      whistlecore:
+        informational: true
+        flags:
+          - whistlecore
+      android:
+        informational: true
+        flags:
+          - android
     patch:
       default:
         # Informational only — no PR block
@@ -39,6 +53,11 @@ ignore:
   - "android/app/src/main/java/org/findmyfam/MainActivity.kt"
   - "android/app/src/main/java/org/findmyfam/FindMyFamApp.kt"
   - "android/app/src/main/java/org/findmyfam/di/**"
+  # Android — thin FFI / SDK wrappers (delegate to native libs, not unit-testable)
+  - "android/app/src/main/java/org/findmyfam/services/MLSService.kt"
+  - "android/app/src/main/java/org/findmyfam/services/RelayService.kt"
+  - "android/app/src/main/java/org/findmyfam/services/LocationService.kt"
+  - "android/app/src/main/java/org/findmyfam/services/IdentityService.kt"
   # Android — Hilt generated code
   - "android/**/hilt_aggregated_deps/**"
   - "android/**/*_HiltComponents*"
