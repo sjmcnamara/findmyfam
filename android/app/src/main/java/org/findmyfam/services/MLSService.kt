@@ -204,6 +204,9 @@ class MLSService @Inject constructor(
     suspend fun getMessages(mlsGroupId: String, limit: UInt?, offset: UInt?, sortOrder: String?): List<Message> =
         mutex.withLock { requireMdk().getMessages(mlsGroupId, limit, offset, sortOrder) }
 
+    suspend fun updateGroupData(mlsGroupId: String, update: GroupDataUpdate): UpdateGroupResult =
+        mutex.withLock { requireMdk().updateGroupData(mlsGroupId, update) }
+
     // MARK: - Key Rotation
 
     suspend fun groupsNeedingSelfUpdate(thresholdSecs: ULong): List<String> =
