@@ -334,16 +334,15 @@ final class AppViewModel: ObservableObject {
             return
         }
 
-        // Connect to relays and initialise MLS in parallel — they have no
-        // dependency on each other and together account for ~1-2s of startup.
-        startupPhase = .connecting
+        // Relay connect runs in background — it does not block loading from local DB.
+        // We await the stored task later (after the splash) before starting subscriptions,
+        // which avoids concurrent connect calls and ensures relay is up before subscribing.
         let enabled = settings.relays.filter(\.isEnabled)
+        let relayTask = Task { await relay.connect(keys: keys, relays: enabled) }
 
-        async let relayConnect: Void = relay.connect(keys: keys, relays: enabled)
-        async let mlsInit: Void = mls.initialise()
-
-        await relayConnect
+        // MLS init is local (SQLite) — typically < 200ms.
         startupPhase = .initialisingEncryption
+        async let mlsInit: Void = mls.initialise()
         do {
             try await mlsInit
         } catch {
@@ -414,7 +413,7 @@ final class AppViewModel: ObservableObject {
 
         // Enforce a minimum splash display time so the animation has time to
         // play even when startup is very fast (warm relay, small group list).
-        let minimumSplash: Duration = .seconds(1.5)
+        let minimumSplash: Duration = .seconds(1.0)
         let elapsed = ContinuousClock.now - splashStart
         if elapsed < minimumSplash {
             try? await Task.sleep(for: minimumSplash - elapsed)
@@ -445,6 +444,11 @@ final class AppViewModel: ObservableObject {
 
         // Start or stop location based on current pause setting
         applyLocationPauseSetting()
+
+        // Ensure relay is connected before starting subscriptions.
+        // relayTask has been running in background since before the splash —
+        // by the time we reach here it is almost certainly already done.
+        await relayTask.value
 
         // Start subscriptions — launches the notification loop as a background
         // Task and returns immediately (no longer blocks).
