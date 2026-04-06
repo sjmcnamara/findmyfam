@@ -324,6 +324,11 @@ final class AppViewModel: ObservableObject {
         // the splash never reaches the screen.
         await Task.yield()
 
+        // Load or generate the Nostr identity. Runs Rust FFI (Keys.generate/parse)
+        // and Secure Enclave crypto on a background thread — these are slow on first
+        // launch and would freeze the splash if called on the main thread.
+        await identity.initialise()
+
         // Record the time so we can enforce a minimum splash display duration.
         let splashStart = ContinuousClock.now
 
