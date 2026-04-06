@@ -345,11 +345,22 @@ final class AppViewModel: ObservableObject {
         let enabled = settings.relays.filter(\.isEnabled)
         let relayTask = Task { await relay.connect(keys: keys, relays: enabled) }
 
-        // MLS init is local (SQLite) — typically < 200ms.
+        // MLS init is local (SQLite) but the first call into the MDK Rust library
+        // triggers runtime initialisation which can block for several seconds.
+        // Run on a background thread so the main thread stays free to render.
         startupPhase = .initialisingEncryption
-        async let mlsInit: Void = mls.initialise()
         do {
-            try await mlsInit
+            let mlsRef = self.mls
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        try mlsRef.initialise()
+                        continuation.resume()
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
         } catch {
             let msg = error.localizedDescription
             FMFLogger.mls.error("MLSService init failed: \(msg)")
