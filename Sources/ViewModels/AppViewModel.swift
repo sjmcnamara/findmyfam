@@ -324,6 +324,25 @@ final class AppViewModel: ObservableObject {
         // the splash never reaches the screen.
         await Task.yield()
 
+        // First launch: skip all Rust init and show onboarding immediately.
+        // The full startup runs after onboarding completes via onOnboardingComplete().
+        if !settings.hasCompletedOnboarding {
+            startupPhase = .ready
+            return
+        }
+
+        await performFullStartup()
+    }
+
+    /// Called when the onboarding carousel finishes. Kicks off the full
+    /// startup sequence (identity, relay, MLS) with the splash visible.
+    func onOnboardingComplete() async {
+        didStart = false
+        startupPhase = .connecting
+        await performFullStartup()
+    }
+
+    private func performFullStartup() async {
         // Load or generate the Nostr identity. Runs Rust FFI (Keys.generate/parse)
         // and Secure Enclave crypto on a background thread — these are slow on first
         // launch and would freeze the splash if called on the main thread.

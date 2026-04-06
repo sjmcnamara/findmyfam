@@ -29,7 +29,10 @@ struct FindMyFamApp: App {
                 if !hasCompletedOnboarding && appViewModel.startupPhase == .ready {
                     OnboardingView(
                         locationService: appViewModel.locationService,
-                        onComplete: { hasCompletedOnboarding = true }
+                        onComplete: {
+                            hasCompletedOnboarding = true
+                            Task { await appViewModel.onOnboardingComplete() }
+                        }
                     )
                     .transition(.opacity.animation(.easeIn(duration: 0.3)))
                     .zIndex(0.5)
