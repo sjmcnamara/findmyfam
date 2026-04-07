@@ -6,6 +6,21 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.1.1] — 2026-04-06
+
+### Added
+- **First-run onboarding flow** (iOS): three-card welcome carousel (encrypted, no accounts, background updates) shown once after the splash screen on a fresh install; followed by a permission-framing screen that explains location access before the system prompt fires; "Skip for now" defers location permission to Settings; `hasCompletedOnboarding` UserDefaults flag gates the flow permanently after first completion
+- **Launch screen logo** (iOS): `UILaunchScreen` now shows a properly sized Whistle wordmark during binary loading instead of a blank white screen
+
+### Improved
+- **Startup performance** (iOS): first-launch onboarding now appears immediately — all Rust init (identity, MLS, relay) is deferred until after onboarding completes; returning-user startup also faster with relay connect moved to background Task, MLS init moved off the main thread, and minimum splash reduced from 1.5s to 1.0s
+- **Skip `newMdk()` timeout**: the always-failing encrypted MDK init (blocked on MDK #243) is no longer attempted, eliminating a multi-second keyring timeout on every cold start
+
+### Changed
+- **Version bump** — iOS 1.1.1 (build 18), Android 1.1.1 (versionCode 15)
+
+---
+
 ## [1.0.2] — 2026-04-05
 
 ### Fixed

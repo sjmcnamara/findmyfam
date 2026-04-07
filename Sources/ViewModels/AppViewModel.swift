@@ -324,6 +324,30 @@ final class AppViewModel: ObservableObject {
         // the splash never reaches the screen.
         await Task.yield()
 
+        // First launch: skip all Rust init and show onboarding immediately.
+        // The full startup runs after onboarding completes via onOnboardingComplete().
+        if !settings.hasCompletedOnboarding {
+            startupPhase = .ready
+            return
+        }
+
+        await performFullStartup()
+    }
+
+    /// Called when the onboarding carousel finishes. Kicks off the full
+    /// startup sequence (identity, relay, MLS) with the splash visible.
+    func onOnboardingComplete() async {
+        didStart = false
+        startupPhase = .connecting
+        await performFullStartup()
+    }
+
+    private func performFullStartup() async {
+        // Load or generate the Nostr identity. Runs Rust FFI (Keys.generate/parse)
+        // and Secure Enclave crypto on a background thread — these are slow on first
+        // launch and would freeze the splash if called on the main thread.
+        await identity.initialise()
+
         // Record the time so we can enforce a minimum splash display duration.
         let splashStart = ContinuousClock.now
 
@@ -334,18 +358,28 @@ final class AppViewModel: ObservableObject {
             return
         }
 
-        // Connect to relays and initialise MLS in parallel — they have no
-        // dependency on each other and together account for ~1-2s of startup.
-        startupPhase = .connecting
+        // Relay connect runs in background — it does not block loading from local DB.
+        // We await the stored task later (after the splash) before starting subscriptions,
+        // which avoids concurrent connect calls and ensures relay is up before subscribing.
         let enabled = settings.relays.filter(\.isEnabled)
+        let relayTask = Task { await relay.connect(keys: keys, relays: enabled) }
 
-        async let relayConnect: Void = relay.connect(keys: keys, relays: enabled)
-        async let mlsInit: Void = mls.initialise()
-
-        await relayConnect
+        // MLS init is local (SQLite) but the first call into the MDK Rust library
+        // triggers runtime initialisation which can block for several seconds.
+        // Run on a background thread so the main thread stays free to render.
         startupPhase = .initialisingEncryption
         do {
-            try await mlsInit
+            let mlsRef = self.mls
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                DispatchQueue.global(qos: .userInitiated).async {
+                    do {
+                        try mlsRef.initialise()
+                        continuation.resume()
+                    } catch {
+                        continuation.resume(throwing: error)
+                    }
+                }
+            }
         } catch {
             let msg = error.localizedDescription
             FMFLogger.mls.error("MLSService init failed: \(msg)")
@@ -414,7 +448,7 @@ final class AppViewModel: ObservableObject {
 
         // Enforce a minimum splash display time so the animation has time to
         // play even when startup is very fast (warm relay, small group list).
-        let minimumSplash: Duration = .seconds(1.5)
+        let minimumSplash: Duration = .seconds(1.0)
         let elapsed = ContinuousClock.now - splashStart
         if elapsed < minimumSplash {
             try? await Task.sleep(for: minimumSplash - elapsed)
@@ -445,6 +479,11 @@ final class AppViewModel: ObservableObject {
 
         // Start or stop location based on current pause setting
         applyLocationPauseSetting()
+
+        // Ensure relay is connected before starting subscriptions.
+        // relayTask has been running in background since before the splash —
+        // by the time we reach here it is almost certainly already done.
+        await relayTask.value
 
         // Start subscriptions — launches the notification loop as a background
         // Task and returns immediately (no longer blocks).

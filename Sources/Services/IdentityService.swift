@@ -25,7 +25,57 @@ final class IdentityService: ObservableObject {
     /// - Parameter storage: Injected key storage (defaults to Keychain for production).
     init(storage: SecureStorage = EncryptedSecureStorage.shared) {
         self.storage = storage
-        loadOrCreate()
+        // loadOrCreate() is deferred to initialise() — calling it here blocks the
+        // main thread (Rust FFI init + Keychain/SE crypto) before SwiftUI renders.
+    }
+
+    /// Load or generate the Nostr identity.
+    ///
+    /// Runs Rust key operations (Keys.generate / Keys.parse) and Secure Enclave
+    /// crypto on a background thread so the main thread stays free to render the
+    /// splash screen. Must be called from AppViewModel.onAppear() after the first
+    /// Task.yield().
+    func initialise() async {
+        typealias BootResult = (keys: Keys, npub: String, pubHex: String, isNew: Bool)
+        let storage = self.storage
+
+        let result: BootResult? = await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                if let nsec = storage.load(key: .nsec) {
+                    guard let restored = try? Keys.parse(secretKey: nsec),
+                          let npub = try? restored.publicKey().toBech32() else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    let pubHex = restored.publicKey().toHex()
+                    continuation.resume(returning: (restored, npub, pubHex, false))
+                } else {
+                    let newKeys = Keys.generate()
+                    guard let nsec = try? newKeys.secretKey().toBech32(),
+                          let npub = try? newKeys.publicKey().toBech32() else {
+                        continuation.resume(returning: nil)
+                        return
+                    }
+                    let pubHex = newKeys.publicKey().toHex()
+                    storage.save(key: .nsec, value: nsec)
+                    continuation.resume(returning: (newKeys, npub, pubHex, true))
+                }
+            }
+        }
+
+        guard let result else {
+            FMFLogger.identity.error("Fatal: could not create/load identity")
+            return
+        }
+
+        self.keys      = result.keys
+        self.identity  = NostrIdentity(npub: result.npub, publicKeyHex: result.pubHex)
+        self.isNewUser = result.isNew
+        if result.isNew {
+            FMFLogger.identity.info("New identity created: \(result.npub)")
+        } else {
+            FMFLogger.identity.info("Identity restored: \(result.npub)")
+        }
     }
 
     // MARK: - Import / Export (v0.8.2)

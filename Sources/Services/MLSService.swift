@@ -45,24 +45,11 @@ actor MLSService {
 
         FMFLogger.mls.info("MLSService init — dbExists=\(dbExists), path=\(path)")
 
-        // Attempt 1: encrypted via keyring-core
-        do {
-            mdk = try newMdk(dbPath: path, serviceId: serviceId, dbKeyId: dbKeyId, config: nil)
-            isInitialised = true
-            let groupCount = (try? mdk?.getGroups().count) ?? -1
-            FMFLogger.mls.info("MLSService initialised (encrypted via keyring-core), \(groupCount) group(s)")
-            return
-        } catch {
-            // newMdk fails while keyring-core set_default_store() is not yet exposed via UniFFI
-            // (MDK #243). Do NOT delete the database here — falling through to newMdkUnencrypted
-            // will open the existing data. Deleting would silently wipe all groups on every launch.
-            // TODO: Add delete-and-retry migration path when MDK #243 ships and newMdk can succeed.
-            FMFLogger.mls.warning("newMdk failed (expected until MDK #243): \(error)")
-        }
-
-        // Fallback: open existing DB (or create fresh) with no encryption.
-        // TODO: Remove this fallback once MDK exposes set_default_store() via UniFFI (MDK #243).
-        FMFLogger.mls.warning("⚠️ Falling back to newMdkUnencrypted — keyring-core not yet available via UniFFI")
+        // Skip newMdk() (encrypted via keyring-core) — it always fails until MDK #243
+        // (set_default_store() not yet exposed via UniFFI) and the failure path may involve
+        // an IPC/keyring timeout that stalls startup by 10-20s. Go straight to the fallback.
+        // TODO: Restore the newMdk() attempt (with a migration path) once MDK #243 ships.
+        FMFLogger.mls.warning("⚠️ Using newMdkUnencrypted — encrypted init skipped until MDK #243")
         mdk = try newMdkUnencrypted(dbPath: path, config: nil)
         isInitialised = true
         let groupCount = (try? mdk?.getGroups().count) ?? -1
