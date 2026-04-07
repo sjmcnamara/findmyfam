@@ -301,13 +301,17 @@ _Released 2026-04-05_
 
 ---
 
-### v1.1.1 — Onboarding Flow ✅
-_First-run experience before location permission_
+### v1.1.1 — Onboarding Flow & Startup Performance ✅
+_First-run experience before location permission + cold-start speed improvements_
 
 - **Welcome carousel**: 3-card first-run screen explaining what Whistle is (encrypted location sharing, family groups, no accounts/servers) — shown once on cold start with no existing identity
 - **Permission framing screen**: dedicated screen with plain-language explanation before the `CLLocationAlwaysUsageDescription` system dialog fires
 - `hasCompletedOnboarding` flag in UserDefaults gates the flow
-- iOS + Android parity
+- **Deferred Rust init on first launch**: onboarding shows immediately — identity, MLS, and relay startup run only after onboarding completes
+- **Relay connect moved to background Task**: splash no longer blocks on WebSocket connections
+- **MLS init off main thread**: `newMdkUnencrypted()` runs on `DispatchQueue.global()`; `newMdk()` (always-failing encrypted init) skipped entirely to avoid keyring timeout
+- **Launch screen logo**: `UILaunchScreen` shows Whistle wordmark during binary loading
+- **Minimum splash reduced**: 1.5s → 1.0s
 
 ---
 
