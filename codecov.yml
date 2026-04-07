@@ -58,6 +58,10 @@ ignore:
   - "android/app/src/main/java/org/findmyfam/services/RelayService.kt"
   - "android/app/src/main/java/org/findmyfam/services/LocationService.kt"
   - "android/app/src/main/java/org/findmyfam/services/IdentityService.kt"
+  # Android — MarmotService (900+ line orchestrator tightly coupled to MLS/Relay FFI)
+  - "android/app/src/main/java/org/findmyfam/services/MarmotService.kt"
+  # Android — ViewModels (lifecycle-coupled, require instrumentation or Robolectric)
+  - "android/app/src/main/java/org/findmyfam/viewmodels/**"
   # Android — Hilt generated code
   - "android/**/hilt_aggregated_deps/**"
   - "android/**/*_HiltComponents*"
