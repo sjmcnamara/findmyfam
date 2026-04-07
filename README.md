@@ -3,9 +3,9 @@
 [![CI](https://github.com/sjmcnamara/whistle/actions/workflows/ci.yml/badge.svg)](https://github.com/sjmcnamara/whistle/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/sjmcnamara/whistle/actions/workflows/codeql.yml/badge.svg)](https://github.com/sjmcnamara/whistle/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/sjmcnamara/whistle/badge)](https://scorecard.dev/viewer/?uri=github.com/sjmcnamara/whistle)
-[![iOS coverage](https://codecov.io/gh/sjmcnamara/whistle/branch/master/graph/badge.svg?flag=ios)](https://app.codecov.io/gh/sjmcnamara/whistle?flags%5B0%5D=ios)
-[![WhistleCore coverage](https://codecov.io/gh/sjmcnamara/whistle/branch/master/graph/badge.svg?flag=whistlecore)](https://app.codecov.io/gh/sjmcnamara/whistle?flags%5B0%5D=whistlecore)
-[![Android coverage](https://codecov.io/gh/sjmcnamara/whistle/branch/master/graph/badge.svg?flag=android)](https://app.codecov.io/gh/sjmcnamara/whistle?flags%5B0%5D=android)
+[![iOS](https://img.shields.io/codecov/c/github/sjmcnamara/whistle/master?flag=ios&label=iOS)](https://app.codecov.io/gh/sjmcnamara/whistle?flags%5B0%5D=ios)
+[![WhistleCore](https://img.shields.io/codecov/c/github/sjmcnamara/whistle/master?flag=whistlecore&label=WhistleCore)](https://app.codecov.io/gh/sjmcnamara/whistle?flags%5B0%5D=whistlecore)
+[![Android](https://img.shields.io/codecov/c/github/sjmcnamara/whistle/master?flag=android&label=Android)](https://app.codecov.io/gh/sjmcnamara/whistle?flags%5B0%5D=android)
 ![Platform](https://img.shields.io/badge/platform-iOS%20%7C%20Android-lightgrey)
 [![License: Unlicense](https://img.shields.io/badge/License-Unlicense-blue.svg)](LICENSE)
 
