@@ -53,6 +53,8 @@ ignore:
   - "android/app/src/main/java/org/findmyfam/MainActivity.kt"
   - "android/app/src/main/java/org/findmyfam/FindMyFamApp.kt"
   - "android/app/src/main/java/org/findmyfam/di/**"
+  # Android — auto-generated UniFFI bindings (5000+ lines, not testable)
+  - "android/app/src/main/java/build/**"
   # Android — thin FFI / SDK wrappers (delegate to native libs, not unit-testable)
   - "android/app/src/main/java/org/findmyfam/services/MLSService.kt"
   - "android/app/src/main/java/org/findmyfam/services/RelayService.kt"
