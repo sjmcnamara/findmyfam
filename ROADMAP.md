@@ -367,8 +367,8 @@ master
   └── feature/v0.9.4-ux-fixes            ✅ merged (PR #34)
   └── feature/v1.0-production-readiness  ✅ merged (PR #44)
   └── feature/v1.0.1-ux-fixes           ✅ merged
-  └── feature/v1.0.2-test-coverage
-  └── feature/v1.1.1-onboarding           ✅ merged
+  └── feature/v1.0.2-test-coverage      ✅ merged
+  └── feature/v1.1.1-onboarding         ✅ merged
   └── feature/v1.1.2-settings-deep-links
   └── feature/v1.1.3-smart-location
 ```
