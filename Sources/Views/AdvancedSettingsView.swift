@@ -3,6 +3,7 @@ import WhistleCore
 
 struct AdvancedSettingsView: View {
     @EnvironmentObject var appViewModel: AppViewModel
+    @Environment(\.openURL) private var openURL
     @State private var showBurnConfirmation = false
     @State private var showAddRelay = false
     @State private var newRelayURL = ""
@@ -56,6 +57,15 @@ struct AdvancedSettingsView: View {
                 )) {
                     Label("Require Unlock", systemImage: "arrow.clockwise.circle")
                 }
+
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        openURL(url)
+                    }
+                } label: {
+                    Label("Face ID & Passcode Settings", systemImage: "faceid")
+                }
+                .font(.subheadline)
             }
 
             Picker(selection: Binding(

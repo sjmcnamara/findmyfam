@@ -6,6 +6,17 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.1.2] — 2026-04-09
+
+### Added
+- **System settings deep links** (iOS & Android): location section in Settings now shows "Open Settings" when permission is denied; biometric settings link shown below App Lock toggle when enabled; iOS restricted-by-policy state surfaced with explanation text
+- **MLS database renamed** (iOS & Android): `findmyfam-mdk.db` → `whistle.db` (iOS), `marmot.db` → `whistle.db` (Android); automatic migration renames the old file + WAL/SHM on first launch so existing users keep their data
+
+### Changed
+- **Version bump** — iOS 1.1.2 (build 19), Android 1.1.2 (versionCode 16)
+
+---
+
 ## [1.1.1] — 2026-04-06
 
 ### Added

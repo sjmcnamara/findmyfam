@@ -332,10 +332,22 @@ actor MLSService {
     }
 
     private static func defaultDBPath() -> String {
-        FileManager.default
-            .urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("findmyfam-mdk.db")
-            .path
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let newPath = docs.appendingPathComponent("whistle.db").path
+
+        // Migrate legacy filename from pre-1.1.2 installs.
+        let oldPath = docs.appendingPathComponent("findmyfam-mdk.db").path
+        let fm = FileManager.default
+        if fm.fileExists(atPath: oldPath) && !fm.fileExists(atPath: newPath) {
+            try? fm.moveItem(atPath: oldPath, toPath: newPath)
+            for suffix in ["-wal", "-shm"] {
+                let old = oldPath + suffix, new = newPath + suffix
+                if fm.fileExists(atPath: old) { try? fm.moveItem(atPath: old, toPath: new) }
+            }
+            FMFLogger.mls.info("Migrated MLS database: findmyfam-mdk.db → whistle.db")
+        }
+
+        return newPath
     }
 
     // MARK: - Errors

@@ -79,13 +79,33 @@ struct SettingsView: View {
             // If the user only granted "When In Use", offer to upgrade to "Always".
             if appViewModel.locationService.authorizationStatus == .authorizedWhenInUse {
                 Button {
-                    if let url = URL(string: "app-settings:") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
                         openURL(url)
                     }
                 } label: {
                     Label("Allow Always for Background Sharing", systemImage: "location.fill")
                 }
                 .font(.subheadline)
+            }
+
+            // Location denied — direct the user to Settings to re-enable.
+            if appViewModel.locationService.authorizationStatus == .denied {
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        openURL(url)
+                    }
+                } label: {
+                    Label("Location Denied — Open Settings", systemImage: "location.slash.fill")
+                        .foregroundStyle(.red)
+                }
+                .font(.subheadline)
+            }
+
+            // Location restricted by device policy (parental controls, MDM, etc.)
+            if appViewModel.locationService.authorizationStatus == .restricted {
+                Label("Location Restricted by Device Policy", systemImage: "lock.fill")
+                    .font(.subheadline)
+                    .foregroundStyle(.orange)
             }
 
             Toggle(isOn: Binding(
