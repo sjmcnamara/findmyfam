@@ -315,12 +315,13 @@ _First-run experience before location permission + cold-start speed improvements
 
 ---
 
-### v1.1.2 — System Settings Deep Links
-_Surface settings shortcuts where the app hits permission walls_
+### v1.1.2 — System Settings Deep Links ✅
+_Surface settings shortcuts where the app hits permission walls + DB rename_
 
-- **Location permission banner**: tapping links directly to iOS Settings > Privacy > Location / Android Location Settings
-- **Biometrics**: App Lock settings row links to Face ID & Passcode / Android Biometrics settings
-- iOS: `UIApplication.openSettingsURLString`; Android: `ACTION_APPLICATION_DETAILS_SETTINGS` / `ACTION_LOCATION_SOURCE_SETTINGS`
+- **Location denied → Open Settings** (iOS & Android): tapping opens the app's Settings page to re-enable location permission
+- **Location restricted** (iOS): informational label when device policy prevents location access
+- **Biometric settings link** (iOS & Android): shown below App Lock toggle when enabled — opens Face ID & Passcode / Security settings
+- **MLS database renamed**: `findmyfam-mdk.db` → `whistle.db` (iOS), `marmot.db` → `whistle.db` (Android) with automatic migration
 
 ---
 
@@ -366,8 +367,8 @@ master
   └── feature/v0.9.4-ux-fixes            ✅ merged (PR #34)
   └── feature/v1.0-production-readiness  ✅ merged (PR #44)
   └── feature/v1.0.1-ux-fixes           ✅ merged
-  └── feature/v1.0.2-test-coverage
-  └── feature/v1.1.1-onboarding           ✅ merged
+  └── feature/v1.0.2-test-coverage      ✅ merged
+  └── feature/v1.1.1-onboarding         ✅ merged
   └── feature/v1.1.2-settings-deep-links
   └── feature/v1.1.3-smart-location
 ```
