@@ -100,7 +100,7 @@ dependencies {
     implementation("org.rust-nostr:nostr-sdk:0.44.2")
 
     // JNA (required by UniFFI-generated Kotlin bindings for MDK)
-    implementation("net.java.dev.jna:jna:5.16.0@aar")
+    implementation("net.java.dev.jna:jna:5.18.1@aar")
 
     // QR code generation (ZXing)
     implementation("com.google.zxing:core:3.5.3")
